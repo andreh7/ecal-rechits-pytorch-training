@@ -4,6 +4,8 @@ import time
 import numpy as np
 import os, sys
 
+import torch.optim as optim
+
 from sklearn.metrics import roc_auc_score
 
 import tqdm
@@ -329,28 +331,12 @@ for fout in fouts:
     print >> fout, "using",options.optimizer,"optimizer"
 
 if options.optimizer == 'adam':
-    updates = adam(train_loss_grad, params)
+    
+    optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 elif options.optimizer == 'sgd':
 
-    # parameters taken from Torch examples,
-    # should be equivalent
-    # but this does not take into account the minibatch size 
-    # (i.e. 32 times fewer evaluations of this function, learning
-    # rate decays 32 times slower) ?
-    updates = sgdWithLearningRateDecay(train_loss_grad, params,
-                                       learningRate = 1e-3,
-                                       learningRateDecay = 1e-7)
-
-    # original torch parameters:                 
-    # optimState = {
-    #    -- learning rate at beginning
-    #    learningRate = 1e-3,
-    #    weightDecay = 0,
-    #    momentum = 0,
-    #    learningRateDecay = 1e-7
-    # }
-
-
+    # parameters taken from pyTorch Mnist example (?!)
+    optimizer = optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
 else:
     raise Exception("internal error")
 
