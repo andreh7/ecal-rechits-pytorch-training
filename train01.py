@@ -43,24 +43,6 @@ parser.add_argument('--print-model-only',
                     metavar = 'file.gv',
                     )
 
-parser.add_argument('--dump-inputs-only',
-                    dest = "dumpInputsOnlyDir",
-                    type = str,
-                    default = None,
-                    help='only dump expanded dumps to the given directory and exit. ' + 
-                         'WARNING: existing files are overwritten witihout notification.',
-                    metavar = 'dir',
-                    )
-
-parser.add_argument('--dump-input-size',
-                    dest = "dumpInputsSize",
-                    type = str,
-                    default = None,
-                    help='used with --dump-inputs-only: specifiy the number of events or fraction ' + 
-                    'of events for which to dump the input data',
-                    metavar = 'n',
-                    )
-
 parser.add_argument('--max-epochs',
                     dest = "maxEpochs",
                     default = None,
@@ -104,28 +86,6 @@ parser.add_argument('dataFile',
                     )
 
 options = parser.parse_args()
-
-#----------
-
-if options.printModelOnlyOutput and options.dumpInputsOnlyDir:
-    print >> sys.stderr,"--print-model-only and --dump-inputs-only are mutually exclusive"
-    sys.exit(1)
-
-if options.dumpInputsSize != None:
-    if not options.dumpInputsOnlyDir:
-        print >> sys.stderr,"--dump-input-size requires --dump-inputs-only"
-        sys.exit(1)
-
-    # try to convert to an integer first
-    try:
-        options.dumpInputsSize = int(options.dumpInputsSize)
-    except ValueError:
-        try:
-            # now try float
-            options.dumpInputsSize = float(options.dumpInputsSize)
-        except ValueError:
-            print >> sys.stderr,"unrecognized format for --dump-input-size value",options.dumpInputsSize
-            sys.exit(1)
 
 #----------
 
@@ -457,52 +417,6 @@ pickle.dump(
     dict(model = model,
          input_vars = input_vars), open(os.path.join(options.outputDir,
                                                      "model-structure.pkl"),"w"))
-#----------
-# dump input data
-#----------
-if options.dumpInputsOnlyDir:
-    for inp, data, weights, label in (
-        (trainInput, trainData, trainWeights, 'train'),
-        (testInput,  testData,  testWeights, 'test')):
-
-        print "dumping input data for",label,"sample"
-        
-        # save in pickled format so we can have arbitrary structures
-        # (unlike np.savez(..) which in principle could work also)
-        foutName = os.path.join(options.dumpInputsOnlyDir,
-                                 "input-%s.npz" % label)
-        
-        outputData = {}
-
-        # limit size of inputs
-        if options.dumpInputsSize != None:
-
-            if options.dumpInputsSize < 1:
-                # a fraction was specified
-                thisSize = int(len(item) * options.dumpInputsSize + 0.5)
-            else:
-                # an absolute size was specified
-                thisSize = min(len(data['labels']), options.dumpInputsSize)
-
-            inp = [ item[:thisSize] for item in inp ]
-        else:
-            thisSize = len(data['labels'])
-
-        for index,item in enumerate(inp):
-            outputData['input/%03d' % index] = item
-            
-        outputData['labels'] = data['labels'][:thisSize]
-        outputData['mvaid']  = data['mvaid'][:thisSize]
-        
-        # these are the weights actually used for training
-        # (i.e. after pt/eta reweighting)
-        outputData['weights'] = weights[:thisSize]
-
-        np.savez(foutName, **outputData)
-        print "wrote",foutName
-
-    sys.exit(0)
-
 #----------
 
 print "params=",params
