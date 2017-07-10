@@ -4,14 +4,7 @@ import time
 import numpy as np
 import os, sys
 
-import lasagne
-from lasagne.objectives import binary_crossentropy, categorical_crossentropy, aggregate
-from lasagne.updates import adam, nesterov_momentum, sgd, get_or_compute_grads
-
 from sklearn.metrics import roc_auc_score
-
-import theano.tensor as T
-import theano
 
 import tqdm
 
