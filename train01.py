@@ -205,19 +205,6 @@ for fout in fouts:
 ### logfile.flush()
 
 #----------
-# write graphviz output to results directory
-#----------
-networkGraphvizFname = os.path.join(options.outputDir, "model")
-dot.write(networkGraphvizFname + ".gv",  format = "raw")
-dot.write(networkGraphvizFname + ".pdf", format = "pdf")
-
-# runs dot externally (assume graphviz is installed on the machine)
-if False:
-    for suffix in ("svg",):
-        draw_net.draw_to_file(lasagne.layers.get_all_layers(model), 
-                              os.path.join(options.outputDir, "model." + suffix))
-
-#----------
 
 target_var = T.imatrix('targets')
 
