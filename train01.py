@@ -414,12 +414,6 @@ elif options.optimizer == 'sgd':
 else:
     raise Exception("internal error")
 
-# updates = nesterov_momentum(
-#           train_loss, params, learning_rate=0.01, momentum=0.9)
-
-#----------
-
-
 #----------
 # build / compile the goal functions
 #----------
