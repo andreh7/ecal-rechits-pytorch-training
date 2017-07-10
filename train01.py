@@ -304,12 +304,6 @@ test_loss       = aggregate(lossFunc(test_prediction, target_var), mode = "mean"
 # method for updating weights
 params = lasagne.layers.get_all_params(model, trainable = True)
 
-train_loss_grad  = theano.grad(train_loss, params)
-if globals().has_key('modelParams') and modelParams.has_key('maxGradientNorm'):
-    # clip the gradient, see http://lasagne.readthedocs.io/en/latest/modules/updates.html#lasagne.updates.total_norm_constraint
-    train_loss_grad = lasagne.updates.total_norm_constraint(train_loss_grad, modelParams['maxGradientNorm'])
-
-
 #----------
 for fout in fouts:
     print >> fout, "using",options.optimizer,"optimizer"
