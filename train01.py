@@ -395,19 +395,38 @@ while True:
     # magnitude of overall gradient. index is minibatch within epoch
 
     startTime = time.time()
+
     for indices, targets in iterate_minibatches(trainData['labels'], batchsize, shuffle = True, selectedIndices = selectedIndices):
 
         # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
 
-        inputs = [ inp[indices] for inp in trainInput]
+        optimizer.zero_grad()
+
+        # forward through the network
+        output = model.forward(trainInput, indices)
 
         thisWeights = trainWeights[indices]
 
-        # this also updates the weights ?
-        sum_train_loss += train_function(* (inputs + [ targets, thisWeights ]))
+        thisTarget = Variable(torch.from_numpy(targets))
 
-        # this leads to an error
-        # print train_prediction.eval()
+        # update weights for loss function
+        # note that we use the argument size_average = False so the
+        # weights must average to one
+        # (currently we average the weights over minibatch
+        # as we most likely effectively did in the Lasagne training
+        # but eventually we should average them over the entire training sample..)
+        weightsTensor[:] = torch.FloatTensor(thisWeights / thisWeights.sum())
+
+        # calculate loss
+        loss = lossFunc.forward(output, thisTarget)
+
+        sum_train_loss += loss.data[0]
+
+        # backpropagate and update weights
+        loss.backward()
+
+        # update learning rate
+        optimizer.step()
 
         train_batches += 1
 
