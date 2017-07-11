@@ -314,7 +314,6 @@ if numOutputNodes != 1:
 # TODO: can we use slicing instead of unpacking these again for the minibatches ?
 with Timer("unpacking training dataset...", fouts) as t:
     trainInput = makeInput(trainData, range(len(trainData['labels'])), inputDataIsSparse = True)
-    assert len(trainInput) == len(input_vars), "number of sets of values (%d) is not equal to number of input variables (%d)" % (len(trainInput), len(input_vars))
 
 with Timer("unpacking test dataset...", fouts) as t:
     testInput  = makeInput(testData, range(len(testData['labels'])), inputDataIsSparse = True)
