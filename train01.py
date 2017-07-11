@@ -104,8 +104,6 @@ for param in options.params:
 
 #----------
 print "building model"
-input_vars, model = makeModel()
-
 model = makeModel()
 
 #----------
