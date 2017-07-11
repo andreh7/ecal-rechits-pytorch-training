@@ -12,8 +12,7 @@ import tqdm
 
 from Timer import Timer
 
-from utils import sgdWithLearningRateDecay, iterate_minibatches
-
+from utils import iterate_minibatches
 
 #----------------------------------------------------------------------
 # main
