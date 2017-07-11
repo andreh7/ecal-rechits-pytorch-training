@@ -84,6 +84,8 @@ options = parser.parse_args()
 
 batchsize = 32
 
+cuda = True
+
 # if not None, set average background
 # weight to one and the average signal
 # weight such that the sum of signal
@@ -138,8 +140,6 @@ fouts = [ sys.stdout, logfile ]
 print "loading data"
 
 doPtEtaReweighting = globals().get("doPtEtaReweighting", False)
-
-cuda = True
 
 # data e.g. to be shared between train and test dataset
 datasetAuxData = {}
