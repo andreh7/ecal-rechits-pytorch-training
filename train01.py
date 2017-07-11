@@ -106,6 +106,9 @@ for param in options.params:
 print "building model"
 model = makeModel()
 
+if cuda:
+    model.cuda()
+
 #----------
 # initialize output directory
 #----------
@@ -192,6 +195,8 @@ for fout in fouts:
 numOutputNodes = 1
 
 weightsTensor = torch.zeros(batchsize)
+if cuda:
+    weightsTensor = weightsTensor.cuda()
 
 #----------
 # check whether we have one or two outputs 
@@ -408,6 +413,8 @@ while True:
         thisWeights = trainWeights[indices]
 
         thisTarget = Variable(torch.from_numpy(targets))
+        if cuda:
+            thisTarget = thisTarget.cuda()
 
         # update weights for loss function
         # note that we use the argument size_average = False so the
@@ -472,6 +479,8 @@ while True:
             end = min(start + evalBatchSize,numSamples)
 
             output = model.forward(input, np.arange(start,end,dtype='int32'))
+            if cuda:
+                output = output.cpu()
             thisOutput[start:end] = output.data.numpy()
 
         outputs.append(thisOutput)
