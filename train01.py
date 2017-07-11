@@ -14,7 +14,6 @@ from Timer import Timer
 
 from utils import sgdWithLearningRateDecay, iterate_minibatches
 
-sys.path.append(os.path.expanduser("~/torchio")); import torchio
 
 #----------------------------------------------------------------------
 # main
