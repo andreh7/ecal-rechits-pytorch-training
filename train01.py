@@ -383,6 +383,9 @@ while True:
     sum_train_loss = 0
     train_batches = 0
 
+    # put model in training mode
+    model.train()
+
     if len(selectedIndices) < len(trainData['labels']):
         for fout in fouts:
             print >> fout, "training on",len(selectedIndices),"out of",len(trainData['labels']),"samples"
