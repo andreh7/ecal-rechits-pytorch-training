@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 
 import numpy as np
-from lasagne.updates import get_or_compute_grads
-
-import theano.tensor as T
-import theano
-
 #----------------------------------------------------------------------
 
 # taken from the Lasagne mnist example and modified
@@ -41,6 +36,11 @@ import time
 # see other Lasagne code e.g. here: https://github.com/Lasagne/Lasagne/blob/996bf64c0aec6d481044495800b461cc62040041/lasagne/updates.py#L584
 
 def sgdWithLearningRateDecay(loss_or_grads, params, learningRate, learningRateDecay):
+
+    from lasagne.updates import get_or_compute_grads
+
+    import theano.tensor as T
+    import theano
 
     from collections import OrderedDict
     from lasagne import utils
