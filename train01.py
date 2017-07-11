@@ -188,19 +188,8 @@ for fout in fouts:
 
 #----------
 
-target_var = T.imatrix('targets')
+numOutputNodes = 1
 
-
-# these are of type theano.tensor.var.TensorVariable
-train_prediction = lasagne.layers.get_output(model)
-
-#----------
-# get the number of output nodes of the model
-#----------
-outputShape = lasagne.layers.get_output_shape(model)
-assert len(outputShape) == 2
-assert outputShape[0] == None
-numOutputNodes = outputShape[1]
 
 #----------
 # check whether we have one or two outputs 
