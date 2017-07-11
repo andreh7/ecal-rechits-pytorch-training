@@ -279,9 +279,6 @@ np.savez(os.path.join(options.outputDir, "weights-labels-test.npz"),
 
 #----------
     
-# method for updating weights
-params = lasagne.layers.get_all_params(model, trainable = True)
-
 for fout in fouts:
     print >> fout, "using",options.optimizer,"optimizer"
 
@@ -330,11 +327,11 @@ train_output = np.zeros(len(trainData['labels']))
 import cPickle as pickle
 pickle.dump(
     dict(model = model,
-         input_vars = input_vars), open(os.path.join(options.outputDir,
+         ), open(os.path.join(options.outputDir,
                                                      "model-structure.pkl"),"w"))
 #----------
 
-print "params=",params
+print "params=",model.parameters()
 print
 print 'starting training at', time.asctime()
 
@@ -500,8 +497,8 @@ while True:
     # saving the model weights
     #----------
 
-    np.savez(os.path.join(options.outputDir, 'model-%04d.npz' % epoch), 
-             *lasagne.layers.get_all_param_values(model))
+    # np.savez(os.path.join(options.outputDir, 'model-%04d.npz' % epoch),
+    #          *lasagne.layers.get_all_param_values(model))
 
     #----------
     # prepare next iteration
