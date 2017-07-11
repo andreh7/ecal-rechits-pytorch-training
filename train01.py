@@ -307,14 +307,15 @@ else:
 # convert targets to integers (needed for softmax)
 #----------
 
-for data in (trainData, testData):
-    data['labels'] = data['labels'].astype('int32').reshape((-1,1))
+if numOutputNodes != 1:
+    for data in (trainData, testData):
+        data['labels'] = data['labels'].astype('int32').reshape((-1,1))
 
-    # check whether we have two outputs 
-    if numOutputNodes == 2:
-        # we have two outputs (typically from a softmax output layer)
-        # we set the second output target values to 1 - labels
-        data['labels'] = np.column_stack([ data['labels'], 1 - data['labels'] ])
+        # check whether we have two outputs 
+        if numOutputNodes == 2:
+            # we have two outputs (typically from a softmax output layer)
+            # we set the second output target values to 1 - labels
+            data['labels'] = np.column_stack([ data['labels'], 1 - data['labels'] ])
 
 #----------
 # produce test and training input once
