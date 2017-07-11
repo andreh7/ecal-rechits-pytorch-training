@@ -315,20 +315,6 @@ else:
     raise Exception("internal error")
 
 #----------
-# build / compile the goal functions
-#----------
-
-with Timer("compiling train dataset loss function...", fouts) as t:
-    train_function = theano.function(input_vars + [ target_var, weight_var ], train_loss, updates = updates, name = 'train_function')
-
-with Timer("compiling test dataset loss function...", fouts) as t:
-    test_function  = theano.function(input_vars + [ target_var, weight_var ], test_loss)
-
-# function to calculate the output of the network
-with Timer("compiling network output function...", fouts) as t:
-    test_prediction_function = theano.function(input_vars, test_prediction)
-
-#----------
 # convert targets to integers (needed for softmax)
 #----------
 
