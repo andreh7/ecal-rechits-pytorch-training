@@ -4,6 +4,7 @@ import time
 import numpy as np
 import os, sys
 
+import torch.nn as nn
 import torch.optim as optim
 
 from sklearn.metrics import roc_auc_score
@@ -190,26 +191,24 @@ for fout in fouts:
 
 numOutputNodes = 1
 
+weightsTensor = torch.zeros(batchsize)
 
 #----------
 # check whether we have one or two outputs 
 #----------
 if numOutputNodes == 1:
-    lossFunc = binary_crossentropy
+    lossFunc = nn.BCELoss(weightsTensor, size_average = False)
 
     trainWeights = trainData['weights'].reshape((-1,1))
     testWeights  = testData['weights'].reshape((-1,1))
 
-    weight_var = T.matrix('weights')
 elif numOutputNodes == 2:
 
     # we have two outputs (typically from a softmax output layer)
-    lossFunc = categorical_crossentropy
+    lossFunc = nn.CrossEntropyLoss(weightsTensor, size_average = False)
 
     trainWeights = trainData['weights'].reshape((-1,))
     testWeights  = testData['weights'].reshape((-1,))
-
-    weight_var = T.vector('weights')
 
 else:
     raise Exception("don't know how to handle %d output nodes" % numOutputNodes)
@@ -280,16 +279,9 @@ np.savez(os.path.join(options.outputDir, "weights-labels-test.npz"),
 
 #----------
     
-train_loss       = aggregate(lossFunc(train_prediction, target_var), mode = "mean", weights = weight_var)
-
-# deterministic = True is e.g. set to replace dropout layers by a fixed weight
-test_prediction = lasagne.layers.get_output(model, deterministic = True)
-test_loss       = aggregate(lossFunc(test_prediction, target_var), mode = "mean", weights = weight_var)
-
 # method for updating weights
 params = lasagne.layers.get_all_params(model, trainable = True)
 
-#----------
 for fout in fouts:
     print >> fout, "using",options.optimizer,"optimizer"
 
