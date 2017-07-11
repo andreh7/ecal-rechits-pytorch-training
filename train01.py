@@ -450,23 +450,29 @@ while True:
 
     #----------
     # calculate outputs of train and test samples
+    # (note that we also recalculate the outputs
+    # on the train samples to have them calculated
+    # with a consistent set of network weights)
     #----------
+
+    # put model into evaluation mode
+    model.eval()
 
     evalBatchSize = 10000
 
     outputs = []
 
-    for input in (trainInput, testInput):
-        numSamples = input[0].shape[0]
-        
+    for input, targets in ((trainInput, trainData['labels']),
+                              (testInput, testData['labels'])):
+
+        numSamples = len(targets)
         thisOutput = np.zeros(numSamples)
 
         for start in range(0,numSamples,evalBatchSize):
             end = min(start + evalBatchSize,numSamples)
 
-            thisOutput[start:end] = test_prediction_function(
-                *[ inp[start:end] for inp in input]
-                )[:,0]
+            output = model.forward(input, np.arange(start,end,dtype='int32'))
+            thisOutput[start:end] = output.data.numpy()
 
         outputs.append(thisOutput)
 
