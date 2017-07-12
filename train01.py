@@ -194,7 +194,7 @@ for fout in fouts:
 
 #----------
 
-numOutputNodes = 1
+numOutputNodes = model.getNumOutputNodes()
 
 weightsTensor = torch.zeros(batchsize)
 if cuda:

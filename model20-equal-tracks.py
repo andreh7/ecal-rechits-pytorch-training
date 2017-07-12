@@ -209,6 +209,11 @@ class Net(nn.Module):
         # convert the list of outputs to a torch 2D tensor
         return torch.cat(outputs, 0)[:,0]
             
+    #----------------------------------------
+
+    def getNumOutputNodes(self):
+        # do not apply any loss function
+        return None
 
 
 #----------------------------------------------------------------------
