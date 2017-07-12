@@ -4,8 +4,10 @@ import time
 import numpy as np
 import os, sys
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.autograd import Variable
 
 from sklearn.metrics import roc_auc_score
 
