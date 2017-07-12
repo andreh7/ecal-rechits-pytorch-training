@@ -21,9 +21,15 @@ def makeInput(dataset, rowIndices, inputDataIsSparse):
     # 'the same' or not
     maxVertexDist = 0.01 # 100 um
 
-    detaDphiFunc = lambda dataset, photonIndex, trackIndex: (
-        dataset['tracks']['etaAtVertex'][trackIndex] - dataset['phoVars/maxRecHitEta'][photonIndex],
-        dataset['tracks']['phiAtVertex'][trackIndex] - dataset['phoVars/maxRecHitPhi'][photonIndex],
+    etaAtVertex = dataset['tracks']['etaAtVertex']
+    phiAtVertex = dataset['tracks']['phiAtVertex']
+
+    maxRecHitEta = dataset['phoVars/maxRecHitEta']
+    maxRecHitPhi = dataset['phoVars/maxRecHitPhi']
+
+    detaDphiFunc = lambda photonIndex, trackIndex: (
+        etaAtVertex[trackIndex] - maxRecHitEta[photonIndex],
+        phiAtVertex[trackIndex] - maxRecHitPhi[photonIndex],
         )
 
     retval = [ 
@@ -52,8 +58,9 @@ def makeInput(dataset, rowIndices, inputDataIsSparse):
         numTracks = dataset['tracks']['numTracks']
 
         trackPt = dataset['tracks']['pt']
+        charge = dataset['tracks']['charge']
 
-        numVarsPerTrack = 1
+        numVarsPerTrack = 4
 
         thisVertexValues = []
 
@@ -62,10 +69,16 @@ def makeInput(dataset, rowIndices, inputDataIsSparse):
             thisVal = np.zeros( (numTracks[photonIndex], numVarsPerTrack) , dtype='float32')
             trackIndexOffset = trackFirstIndex[photonIndex]
   
+            trkInd = slice(trackIndexOffset, trackIndexOffset + numTracks[photonIndex])
+
             # assign variables vectorized
-            thisVal[:,0] = trackPt[trackIndexOffset:trackIndexOffset + numTracks[photonIndex]]
+            thisVal[:,0] = trackPt[trkInd]
+            thisVal[:,1] = etaAtVertex[trkInd] - maxRecHitEta[photonIndex]
+            thisVal[:,2] = phiAtVertex[trkInd] - maxRecHitPhi[photonIndex]
+            thisVal[:,3] = charge[trkInd]
 
             thisVertexValues.append(thisVal)
+
         retval.append(thisVertexValues)
 
     # end of loop over vertex types
@@ -99,7 +112,7 @@ class Net(nn.Module):
         # input side layers
         #----------
 
-        numInputs = 1
+        numInputs = 4
         
         self.inputSideLayers = []
         for i in range(numLayersInputSide):
