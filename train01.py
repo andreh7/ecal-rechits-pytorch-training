@@ -217,6 +217,14 @@ elif numOutputNodes == 2:
     trainWeights = trainData['weights'].reshape((-1,))
     testWeights  = testData['weights'].reshape((-1,))
 
+elif numOutputNodes == None:
+    # do not apply a loss function (e.g. useful
+    # to calculate the AUC of input variables)
+    lossFunc = None
+
+    trainWeights = trainData['weights'].reshape((-1,1))
+    testWeights  = testData['weights'].reshape((-1,1))
+
 else:
     raise Exception("don't know how to handle %d output nodes" % numOutputNodes)
 
@@ -289,21 +297,24 @@ np.savez(os.path.join(options.outputDir, "weights-labels-test.npz"),
 for fout in fouts:
     print >> fout, "using",options.optimizer,"optimizer"
 
-if options.optimizer == 'adam':
-    
-    optimizer = optim.Adam(model.parameters(), lr = 0.0001)
-elif options.optimizer == 'sgd':
+if lossFunc != None:
+    if options.optimizer == 'adam':
 
-    # parameters taken from pyTorch Mnist example (?!)
-    optimizer = optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
+        optimizer = optim.Adam(model.parameters(), lr = 0.0001)
+    elif options.optimizer == 'sgd':
+
+        # parameters taken from pyTorch Mnist example (?!)
+        optimizer = optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
+    else:
+        raise Exception("internal error")
 else:
-    raise Exception("internal error")
+    optimizer = None
 
 #----------
 # convert targets to integers (needed for softmax)
 #----------
 
-if numOutputNodes != 1:
+if numOutputNodes != 1 and numOutputNodes != None:
     for data in (trainData, testData):
         data['labels'] = data['labels'].astype('int32').reshape((-1,1))
 
@@ -407,7 +418,8 @@ while True:
 
         # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
 
-        optimizer.zero_grad()
+        if optimizer != None:
+            optimizer.zero_grad()
 
         # forward through the network
         output = model.forward(trainInput, indices)
@@ -427,6 +439,10 @@ while True:
         weightsTensor[:] = torch.FloatTensor(thisWeights / thisWeights.sum())
 
         # calculate loss
+        if lossFunc == None:
+            # just calculate the AUC of the training and test sample
+            break
+
         loss = lossFunc.forward(output, thisTarget)
 
         sum_train_loss += loss.data[0]
@@ -542,3 +558,8 @@ while True:
     # prepare next iteration
     #----------
     epoch += 1
+
+    if lossFunc == None:
+        # just calculate the AUC of the training and test sample,
+        # do not continue iterating
+        break
