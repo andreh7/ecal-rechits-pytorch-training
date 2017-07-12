@@ -66,6 +66,15 @@ parser.add_argument('--size',
                     help='override train and test sample size (e.g. for faster testing): integer value > 1: absolute number of samples to use, float value in the range 0..1: fraction of sample to use',
                     )
 
+
+parser.add_argument('--nocuda',
+                    # note the inverted logic
+                    dest = "cuda",
+                    default = True,
+                    action = "store_false",
+                    help='run on CPU instead of GPU',
+                    )
+
 parser.add_argument('modelFile',
                     metavar = "modelFile.py",
                     type = str,
@@ -85,8 +94,6 @@ options = parser.parse_args()
 #----------
 
 batchsize = 32
-
-cuda = True
 
 # if not None, set average background
 # weight to one and the average signal
@@ -108,7 +115,7 @@ for param in options.params:
 print "building model"
 model = makeModel()
 
-if cuda:
+if options.cuda:
     model.cuda()
 
 #----------
@@ -149,14 +156,14 @@ datasetAuxData = {}
 
 with Timer("loading training dataset...") as t:
     trainData, trsize = datasetLoadFunction(dataDesc['train_files'], options.size, 
-                                            cuda = cuda, 
+                                            cuda = options.cuda, 
                                             isTraining = True,
                                             reweightPtEta = doPtEtaReweighting,
                                             logStreams = fouts,
                                             returnEventIds = False,
                                             auxData = datasetAuxData)
 with Timer("loading test dataset...") as t:
-    testData,  tesize = datasetLoadFunction(dataDesc['test_files'], options.size, cuda, 
+    testData,  tesize = datasetLoadFunction(dataDesc['test_files'], options.size, options.cuda, 
                                             isTraining = False,
                                             reweightPtEta = False,
                                             logStreams = fouts,
@@ -197,7 +204,7 @@ for fout in fouts:
 numOutputNodes = model.getNumOutputNodes()
 
 weightsTensor = torch.zeros(batchsize)
-if cuda:
+if options.cuda:
     weightsTensor = weightsTensor.cuda()
 
 #----------
@@ -427,7 +434,7 @@ while True:
         thisWeights = trainWeights[indices]
 
         thisTarget = Variable(torch.from_numpy(targets))
-        if cuda:
+        if options.cuda:
             thisTarget = thisTarget.cuda()
 
         # update weights for loss function
@@ -497,7 +504,7 @@ while True:
             end = min(start + evalBatchSize,numSamples)
 
             output = model.forward(input, np.arange(start,end,dtype='int32'))
-            if cuda:
+            if options.cuda:
                 output = output.cpu()
             thisOutput[start:end] = output.data.numpy()
 
