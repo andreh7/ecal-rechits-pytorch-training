@@ -5,15 +5,13 @@
 # variables
 
 
-from lasagne.layers import InputLayer, DenseLayer, ConcatLayer
-from lasagne.init import GlorotUniform
-from lasagne.nonlinearities import rectify, sigmoid
-
 import rechitmodelutils
 
 import numpy as np
-import theano.tensor as T
 import math
+
+import torch.nn as nn
+import torch.nn.functional as F
 
 #----------------------------------------------------------------------
 # model
@@ -47,66 +45,59 @@ batchesPerSuperBatch = math.floor(3345197 / batchSize)
 
 def makeModel():
 
-    # note that we need several input variables here
-    # 3D tensor
-    inputVarRecHits        = T.tensor4('rechits')
-
-    ninputLayers = 1
-    network = InputLayer(shape=(None, ninputLayers, width, height),
-                         input_var = inputVarRecHits,
-                         name = 'rechits',
-                        )
-
-    recHitsModel = rechitmodelutils.makeRecHitsModel(network, nstates[:2], filtsize, poolsize)
+    # recHitsModel will be an nn.Sequential module
+    recHitsModel = rechitmodelutils.makeRecHitsModel(nstates[:2], filtsize, poolsize)
 
     # create input 'networks' for additional variables (such as track isolation variables)
     # taking the global variable additionalVars specified in a dataset file or modified
     # on the command line
-    singleVariableInputVars = []    # Theano variables
-    singleVariableInputLayers = []  # Lasagne input layers
 
     # TODO: could use a single input layer for the additional variables
     #       instead of individual ones
 
-    for varname in additionalVars:
-        singleVariableInputVars.append(T.matrix('varname'))
+    singleVariableInputLayers = []
 
-        singleVariableInputLayers.append(
-            InputLayer(shape = (None,1), 
-                       input_var = singleVariableInputVars[-1],
-                       name = varname)
-            )
+    from Identity import Identity
+    from TableModule import TableModule
+
+    for varname in additionalVars:
+        singleVariableInputLayers.append(Identity())
 
     #----------
     # combine nn output from convolutional layers for
     # rechits with track isolation variables
     #----------
+    layers = []
 
-    network = ConcatLayer([ recHitsModel ] + singleVariableInputLayers,
-                          axis = 1)
+    layers.append(TableModule( [ recHitsModel ] + singleVariableInputLayers ))
 
     #----------
     # common output part
     #----------
-    # outputModel:add(nn.Linear(nstates[2]*1*5 + 2, # +2 for the track isolation variables
-    #                           nstates[3]))
-    # outputModel:add(nn.ReLU())
 
-    network = DenseLayer(
-        network,
-        num_units = nstates[2],
-        W = GlorotUniform(),
-        nonlinearity = rectify)
+    # to print the shape at this point
+    # layers.append(PrintLayer())
+
+    layers.append(nn.Linear(332, nstates[2]))
+    nn.init.xavier_uniform(layers[-1].weight.data)
+
+    layers.append(nn.ReLU())
+
 
     # output
-    network = DenseLayer(
-        network,
-        num_units = 1,  
-        nonlinearity = sigmoid,
-        W = GlorotUniform(),
-        )
+    layers.append(nn.Linear(nstates[2], 1))
+    nn.init.xavier_uniform(layers[-1].weight.data)
 
-    return [ inputVarRecHits ] + singleVariableInputVars, network
+    # TODO: we could use logits instead (also requires
+    #       different loss function)
+
+    layers.append(nn.Sigmoid())
+
+    result = nn.Sequential(*layers)
+
+    from IndexMerger import IndexMerger
+
+    return IndexMerger(result)
 
 #----------------------------------------------------------------------
 # function to prepare input data samples
