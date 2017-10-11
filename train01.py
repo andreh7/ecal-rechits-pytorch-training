@@ -522,7 +522,7 @@ while True:
             output = model.forward(input, np.arange(start,end,dtype='int32'))
             if options.cuda:
                 output = output.cpu()
-            thisOutput[start:end] = output.data.numpy()
+            thisOutput[start:end] = output.data.numpy().ravel()
 
         outputs.append(thisOutput)
 
