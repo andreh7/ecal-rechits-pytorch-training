@@ -208,8 +208,15 @@ for fout in fouts:
 ### logfile.flush()
 
 #----------
+# in our own model classes we have such a method,
+# otherwise just assume that we have one output
 
-numOutputNodes = model.getNumOutputNodes()
+if hasattr(model, 'getNumOutputNodes'):
+    numOutputNodes = model.getNumOutputNodes()
+else:
+    numOutputNodes = 1
+
+#----------
 
 weightsTensor = torch.zeros(batchsize)
 if options.cuda:
