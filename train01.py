@@ -444,6 +444,7 @@ while True:
             optimizer.zero_grad()
 
         # forward through the network
+        # at this point trainInput is still a numpy array
         output = model.forward(trainInput, indices)
 
         thisWeights = trainWeights[indices]
