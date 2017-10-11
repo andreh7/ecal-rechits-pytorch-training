@@ -18,6 +18,205 @@ from Timer import Timer
 from utils import iterate_minibatches
 
 #----------------------------------------------------------------------
+
+def epochIteration():
+    # iterates once over the training sample
+    nowStr = time.strftime("%Y-%m-%d %H:%M:%S")
+        
+    for fout in fouts:
+
+        print >> fout, "----------------------------------------"
+        print >> fout, "starting epoch %d at" % epoch, nowStr
+        print >> fout, "----------------------------------------"
+        print >> fout, "output directory is", options.outputDir
+        fout.flush()
+
+    #----------
+    # check if we should only train on a subset of indices
+    #----------
+    if globals().has_key("adaptiveTrainingSample") and adaptiveTrainingSample:
+        assert globals().has_key('trainEventSelectionFunction'), "function trainEventSelectionFunction(..) not defined"
+
+        if epoch == 1:
+            for fout in fouts:
+                print >> fout, "using adaptive training event selection"
+
+        selectedIndices = trainEventSelectionFunction(epoch, 
+                                                      trainData['labels'],
+                                                      trainWeights,
+                                                      train_output,
+                                                      )
+
+        # make sure this is an np.array(..)
+        selectedIndices = np.array(selectedIndices)
+    else:
+        selectedIndices = np.arange(len(trainData['labels']))
+
+    #----------
+    # training 
+    #----------
+
+    sum_train_loss = 0
+    train_batches = 0
+
+    # put model in training mode
+    model.train()
+
+    if len(selectedIndices) < len(trainData['labels']):
+        for fout in fouts:
+            print >> fout, "training on",len(selectedIndices),"out of",len(trainData['labels']),"samples"
+
+    progbar = tqdm.tqdm(total = len(selectedIndices), mininterval = 1.0, unit = 'samples')
+
+    # magnitude of overall gradient. index is minibatch within epoch
+
+    startTime = time.time()
+
+    for indices, targets in iterate_minibatches(trainData['labels'], batchsize, shuffle = True, selectedIndices = selectedIndices):
+
+        # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
+
+        if optimizer != None:
+            optimizer.zero_grad()
+
+        # forward through the network
+        # at this point trainInput is still a numpy array
+        output = model.forward(trainInput, indices)
+
+        thisWeights = trainWeights[indices]
+
+        thisTarget = Variable(torch.from_numpy(targets))
+        if options.cuda:
+            thisTarget = thisTarget.cuda(options.cudaDevice)
+
+        # update weights for loss function
+        # note that we use the argument size_average = False so the
+        # weights must average to one
+        # (currently we average the weights over minibatch
+        # as we most likely effectively did in the Lasagne training
+        # but eventually we should average them over the entire training sample..)
+        weightsTensor[:] = torch.FloatTensor(thisWeights / thisWeights.sum())
+
+        # calculate loss
+        if lossFunc == None:
+            # just calculate the AUC of the training and test sample
+            break
+
+        loss = lossFunc.forward(output, thisTarget)
+
+        sum_train_loss += loss.data[0]
+
+        # backpropagate and update weights
+        loss.backward()
+
+        # update learning rate
+        optimizer.step()
+
+        train_batches += 1
+
+        progbar.update(batchsize)
+
+    # end of loop over minibatches
+    progbar.close()
+
+    #----------
+
+    deltaT = time.time() - startTime
+
+    for fout in fouts:
+        print >> fout
+        print >> fout, "time to learn 1 sample: %.3f ms" % ( deltaT / len(trainWeights) * 1000.0)
+        print >> fout, "time to train entire batch: %.2f min" % (deltaT / 60.0)
+        print >> fout
+        print >> fout, "avg train loss:",sum_train_loss / float(len(selectedIndices))
+        print >> fout
+        fout.flush()
+
+    #----------
+    # calculate outputs of train and test samples
+    # (note that we also recalculate the outputs
+    # on the train samples to have them calculated
+    # with a consistent set of network weights)
+    #----------
+
+    # put model into evaluation mode
+    model.eval()
+
+    evalBatchSize = 10000
+
+    outputs = []
+
+    for input, targets in ((trainInput, trainData['labels']),
+                              (testInput, testData['labels'])):
+
+        numSamples = len(targets)
+        thisOutput = np.zeros(numSamples)
+
+        for start in range(0,numSamples,evalBatchSize):
+            end = min(start + evalBatchSize,numSamples)
+
+            output = model.forward(input, np.arange(start,end,dtype='int32'))
+            if options.cuda:
+                output = output.cpu()
+            thisOutput[start:end] = output.data.numpy().ravel()
+
+        outputs.append(thisOutput)
+
+    train_output, test_output = outputs
+            
+    # evaluating all at once exceeds the GPU memory in some cases
+    # train_output = test_prediction_function(*trainInput)[:,1]
+    # test_output = test_prediction_function(*testInput)[:,1]
+
+    #----------
+    # calculate AUCs
+    #----------
+
+    for name, predictions, labels, weights in  (
+        # we use the original weights (before pt/eta reweighting)
+        # here for printing for the train set, i.e. not necessarily
+        # the weights used for training
+        ('train', train_output, trainData['labels'], origTrainWeights),
+        ('test',  test_output,  testData['labels'],  testWeights),
+        ):
+
+        if numOutputNodes == 2:
+            # make sure we only have one column
+            labels = labels[:,0]
+
+        auc = roc_auc_score(labels,
+                            predictions,
+                            sample_weight = weights,
+                            average = None,
+                            )
+
+        for fout in fouts:
+            print >> fout
+            print >> fout, "%s AUC: %f" % (name, auc)
+            fout.flush()
+
+        # write out online calculated auc to the result directory
+        fout = open(os.path.join(options.outputDir, "auc-%s-%04d.txt" % (name, epoch)), "w")
+        print >> fout, auc
+        fout.close()
+
+        # write network output
+        np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
+                 output = predictions,
+                 )
+
+
+    #----------
+    # saving the model weights
+    #----------
+
+    # np.savez(os.path.join(options.outputDir, 'model-%04d.npz' % epoch),
+    #          *lasagne.layers.get_all_param_values(model))
+    
+
+
+
+#----------------------------------------------------------------------
 # main
 #----------------------------------------------------------------------
 
@@ -385,197 +584,7 @@ while True:
 
     #----------
 
-    nowStr = time.strftime("%Y-%m-%d %H:%M:%S")
-        
-    for fout in fouts:
-
-        print >> fout, "----------------------------------------"
-        print >> fout, "starting epoch %d at" % epoch, nowStr
-        print >> fout, "----------------------------------------"
-        print >> fout, "output directory is", options.outputDir
-        fout.flush()
-
-    #----------
-    # check if we should only train on a subset of indices
-    #----------
-    if globals().has_key("adaptiveTrainingSample") and adaptiveTrainingSample:
-        assert globals().has_key('trainEventSelectionFunction'), "function trainEventSelectionFunction(..) not defined"
-
-        if epoch == 1:
-            for fout in fouts:
-                print >> fout, "using adaptive training event selection"
-
-        selectedIndices = trainEventSelectionFunction(epoch, 
-                                                      trainData['labels'],
-                                                      trainWeights,
-                                                      train_output,
-                                                      )
-
-        # make sure this is an np.array(..)
-        selectedIndices = np.array(selectedIndices)
-    else:
-        selectedIndices = np.arange(len(trainData['labels']))
-
-    #----------
-    # training 
-    #----------
-
-    sum_train_loss = 0
-    train_batches = 0
-
-    # put model in training mode
-    model.train()
-
-    if len(selectedIndices) < len(trainData['labels']):
-        for fout in fouts:
-            print >> fout, "training on",len(selectedIndices),"out of",len(trainData['labels']),"samples"
-
-    progbar = tqdm.tqdm(total = len(selectedIndices), mininterval = 1.0, unit = 'samples')
-
-    # magnitude of overall gradient. index is minibatch within epoch
-
-    startTime = time.time()
-
-    for indices, targets in iterate_minibatches(trainData['labels'], batchsize, shuffle = True, selectedIndices = selectedIndices):
-
-        # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
-
-        if optimizer != None:
-            optimizer.zero_grad()
-
-        # forward through the network
-        # at this point trainInput is still a numpy array
-        output = model.forward(trainInput, indices)
-
-        thisWeights = trainWeights[indices]
-
-        thisTarget = Variable(torch.from_numpy(targets))
-        if options.cuda:
-            thisTarget = thisTarget.cuda(options.cudaDevice)
-
-        # update weights for loss function
-        # note that we use the argument size_average = False so the
-        # weights must average to one
-        # (currently we average the weights over minibatch
-        # as we most likely effectively did in the Lasagne training
-        # but eventually we should average them over the entire training sample..)
-        weightsTensor[:] = torch.FloatTensor(thisWeights / thisWeights.sum())
-
-        # calculate loss
-        if lossFunc == None:
-            # just calculate the AUC of the training and test sample
-            break
-
-        loss = lossFunc.forward(output, thisTarget)
-
-        sum_train_loss += loss.data[0]
-
-        # backpropagate and update weights
-        loss.backward()
-
-        # update learning rate
-        optimizer.step()
-
-        train_batches += 1
-
-        progbar.update(batchsize)
-
-    # end of loop over minibatches
-    progbar.close()
-
-    #----------
-
-    deltaT = time.time() - startTime
-
-    for fout in fouts:
-        print >> fout
-        print >> fout, "time to learn 1 sample: %.3f ms" % ( deltaT / len(trainWeights) * 1000.0)
-        print >> fout, "time to train entire batch: %.2f min" % (deltaT / 60.0)
-        print >> fout
-        print >> fout, "avg train loss:",sum_train_loss / float(len(selectedIndices))
-        print >> fout
-        fout.flush()
-
-    #----------
-    # calculate outputs of train and test samples
-    # (note that we also recalculate the outputs
-    # on the train samples to have them calculated
-    # with a consistent set of network weights)
-    #----------
-
-    # put model into evaluation mode
-    model.eval()
-
-    evalBatchSize = 10000
-
-    outputs = []
-
-    for input, targets in ((trainInput, trainData['labels']),
-                              (testInput, testData['labels'])):
-
-        numSamples = len(targets)
-        thisOutput = np.zeros(numSamples)
-
-        for start in range(0,numSamples,evalBatchSize):
-            end = min(start + evalBatchSize,numSamples)
-
-            output = model.forward(input, np.arange(start,end,dtype='int32'))
-            if options.cuda:
-                output = output.cpu()
-            thisOutput[start:end] = output.data.numpy().ravel()
-
-        outputs.append(thisOutput)
-
-    train_output, test_output = outputs
-            
-    # evaluating all at once exceeds the GPU memory in some cases
-    # train_output = test_prediction_function(*trainInput)[:,1]
-    # test_output = test_prediction_function(*testInput)[:,1]
-
-    #----------
-    # calculate AUCs
-    #----------
-
-    for name, predictions, labels, weights in  (
-        # we use the original weights (before pt/eta reweighting)
-        # here for printing for the train set, i.e. not necessarily
-        # the weights used for training
-        ('train', train_output, trainData['labels'], origTrainWeights),
-        ('test',  test_output,  testData['labels'],  testWeights),
-        ):
-
-        if numOutputNodes == 2:
-            # make sure we only have one column
-            labels = labels[:,0]
-
-        auc = roc_auc_score(labels,
-                            predictions,
-                            sample_weight = weights,
-                            average = None,
-                            )
-
-        for fout in fouts:
-            print >> fout
-            print >> fout, "%s AUC: %f" % (name, auc)
-            fout.flush()
-
-        # write out online calculated auc to the result directory
-        fout = open(os.path.join(options.outputDir, "auc-%s-%04d.txt" % (name, epoch)), "w")
-        print >> fout, auc
-        fout.close()
-
-        # write network output
-        np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
-                 output = predictions,
-                 )
-
-
-    #----------
-    # saving the model weights
-    #----------
-
-    # np.savez(os.path.join(options.outputDir, 'model-%04d.npz' % epoch),
-    #          *lasagne.layers.get_all_param_values(model))
+    epochIteration()
 
     #----------
     # prepare next iteration
