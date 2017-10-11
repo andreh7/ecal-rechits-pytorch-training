@@ -75,6 +75,14 @@ parser.add_argument('--nocuda',
                     help='run on CPU instead of GPU',
                     )
 
+
+parser.add_argument('--gpu',
+                    dest = "cudaDevice",
+                    default = 0,
+                    type = int,
+                    help='index of GPU to run on',
+                    )
+
 parser.add_argument('modelFile',
                     metavar = "modelFile.py",
                     type = str,
@@ -116,7 +124,7 @@ print "building model"
 model = makeModel()
 
 if options.cuda:
-    model.cuda()
+    model.cuda(options.cudaDevice)
 
 #----------
 # initialize output directory
@@ -205,7 +213,7 @@ numOutputNodes = model.getNumOutputNodes()
 
 weightsTensor = torch.zeros(batchsize)
 if options.cuda:
-    weightsTensor = weightsTensor.cuda()
+    weightsTensor = weightsTensor.cuda(options.cudaDevice)
 
 #----------
 # check whether we have one or two outputs 
@@ -435,7 +443,7 @@ while True:
 
         thisTarget = Variable(torch.from_numpy(targets))
         if options.cuda:
-            thisTarget = thisTarget.cuda()
+            thisTarget = thisTarget.cuda(options.cudaDevice)
 
         # update weights for loss function
         # note that we use the argument size_average = False so the
