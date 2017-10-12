@@ -624,6 +624,23 @@ while True:
     epochIteration()
 
     #----------
+    # checkpointing
+    # see e.g. https://github.com/pytorch/examples/blob/7d0d413425e2ee64fcd0e0de1b11c5cca1f79f4d/imagenet/main.py#L165
+    #----------
+
+    state = dict(
+            epoch = epoch,
+            state_dict = model.state_dict(),
+            )
+
+    if optimizer is None:
+        state['optimizer'] = None
+    else:
+        state['optimizer'] = optimizer.state_dict()
+
+    torch.save(state, os.path.join(options.outputDir, "checkpoint-%04d.torch" % epoch))
+
+    #----------
     # prepare next iteration
     #----------
     epoch += 1
