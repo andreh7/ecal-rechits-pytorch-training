@@ -19,6 +19,21 @@ from utils import iterate_minibatches
 
 #----------------------------------------------------------------------
 
+import signal
+
+stopFlag = False
+
+def breakHandler(signal, frame):
+    # handler for stopping gracefully when CTRL-C was pressed
+    global stopFlag
+    stopFlag = True
+    print >> sys.stderr,"CTRL-C pressed, exiting soon..."
+
+    # do we need to reregister ?
+
+
+#----------------------------------------------------------------------
+
 def epochIteration():
     # iterates once over the training sample
     nowStr = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -73,6 +88,11 @@ def epochIteration():
     startTime = time.time()
 
     for indices, targets in iterate_minibatches(trainData['labels'], batchsize, shuffle = True, selectedIndices = selectedIndices):
+
+        if stopFlag:
+            # do not save the current state of the model, the previous
+            # iteration should be good enough
+            return
 
         # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
 
@@ -595,3 +615,7 @@ while True:
         # just calculate the AUC of the training and test sample,
         # do not continue iterating
         break
+
+    if stopFlag:
+        break
+
