@@ -112,6 +112,8 @@ unpacker = rechitmodelutils.RecHitsUnpacker(
     recHitsYoffset = -18 + 12,
     )
 
+#----------------------------------------------------------------------
+
 def makeInput(dataset, rowIndices, inputDataIsSparse):
     assert inputDataIsSparse,"non-sparse input data is not supported"
 
@@ -120,8 +122,7 @@ def makeInput(dataset, rowIndices, inputDataIsSparse):
     #----------
     recHits = unpacker.unpack(dataset, rowIndices)
 
-    return [ recHits ] + [
-        dataset[varname][rowIndices] for varname in additionalVars
-        ]
+    return [ recHits,
+             np.stack([ dataset[varname] for varname in additionalVars], axis = 1).reshape(-1, len(additionalVars))[rowIndices] ]
 
 #----------------------------------------------------------------------
