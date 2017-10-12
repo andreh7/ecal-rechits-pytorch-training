@@ -717,7 +717,14 @@ while True:
 # write out profiling data
 if options.pythonProfiling:
     profiler.disable()
-    profiler.print_stats(sort = 'time')
     outFname = os.path.join(options.outputDir, "pythonProfile.prof")
     profiler.dump_stats(outFname)
+
+    # read stats back to print them and to print them to both stdout
+    # and the log file
+
+    import pstats
+    for fout in fouts:
+        stat = pstats.Stats(outFname, stream = fout).sort_stats('time').print_stats()
+
     print >> sys.stderr,"wrote profiling data to",outFname
