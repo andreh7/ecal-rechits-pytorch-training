@@ -2,7 +2,7 @@
 
 import time
 import numpy as np
-import os, sys
+import os, sys, re
 
 import torch
 import torch.nn as nn
@@ -32,6 +32,46 @@ def breakHandler(signal, frame):
     print >> sys.stderr,"CTRL-C pressed, exiting soon..."
 
     # do we need to reregister ?
+
+
+#----------------------------------------------------------------------
+
+def loadCheckpoint(outputDir, model, optimizer):
+    # loads model weights and optimizer state from
+    # the latest checkpoint file found in the output directory
+    # 
+
+    # find the highest numbered checkpoint file
+    import glob
+    latestEpoch = None
+    latestEpochFile = None
+    for fname in glob.glob(os.path.join(outputDir, "checkpoint-*.torch")):
+
+        mo = re.match("checkpoint-(\d+)\.torch$", os.path.basename(fname))
+
+        if mo is None:
+            continue
+
+        epoch = int(mo.group(1))
+
+        if latestEpoch is None or epoch > latestEpoch:
+            latestEpoch = epoch
+            latestEpochFile = fname
+
+    if latestEpoch is None:
+        raise Exception("could not find any checkpoint file in directory %s" % outputDir)
+
+    #----------
+    # load the states from the checkpoint file
+    #----------
+    # (see also https://github.com/pytorch/examples/blob/7d0d413425e2ee64fcd0e0de1b11c5cca1f79f4d/imagenet/main.py#L98 )
+    
+    state = torch.load(latestEpochFile)
+
+    model.load_state_dict(state['model_state'])
+    optimizer.load_state_dict(state['optimizer_state'])
+    
+    return latestEpoch
 
 
 #----------------------------------------------------------------------
@@ -311,6 +351,12 @@ parser.add_argument('--pprof',
                     help='enable python profiling during training/evaluation (but not initial data loading)',
                     )
 
+parser.add_argument('--resume',
+                    default = False,
+                    action = 'store_true',
+                    help='resume training from latest checkpoint',
+                    )
+
 parser.add_argument('modelFile',
                     metavar = "modelFile.py",
                     type = str,
@@ -326,6 +372,14 @@ parser.add_argument('dataFile',
                     )
 
 options = parser.parse_args()
+
+
+#----------
+
+if options.resume:
+    if options.outputDir is None:
+        print >> sys.stderr, "must specify an output directory when resuming"
+        sys.exit(1)
 
 #----------
 
@@ -561,6 +615,16 @@ else:
     optimizer = None
 
 #----------
+# load model and optimizer state if resuming
+#----------
+
+if options.resume:
+    assert optimizer is not None
+    epoch = loadCheckpoint(options.outputDir, model, optimizer)
+else:
+    epoch = 1
+
+#----------
 # convert targets to integers (needed for softmax)
 #----------
 
@@ -603,9 +667,6 @@ print
 print 'starting training at', time.asctime()
 
 
-epoch = 1
-
-
 signal.signal(signal.SIGINT, breakHandler)
 
 if options.pythonProfiling:
@@ -630,13 +691,13 @@ while True:
 
     state = dict(
             epoch = epoch,
-            state_dict = model.state_dict(),
+            model_state = model.state_dict(),
             )
 
     if optimizer is None:
-        state['optimizer'] = None
+        state['optimizer_state'] = None
     else:
-        state['optimizer'] = optimizer.state_dict()
+        state['optimizer_state'] = optimizer.state_dict()
 
     torch.save(state, os.path.join(options.outputDir, "checkpoint-%04d.torch" % epoch))
 
