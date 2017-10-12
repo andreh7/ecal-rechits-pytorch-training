@@ -55,13 +55,8 @@ def makeModel():
     # TODO: could use a single input layer for the additional variables
     #       instead of individual ones
 
-    singleVariableInputLayers = []
-
     from Identity import Identity
     from TableModule import TableModule
-
-    for varname in additionalVars:
-        singleVariableInputLayers.append(Identity())
 
     #----------
     # combine nn output from convolutional layers for
@@ -69,7 +64,7 @@ def makeModel():
     #----------
     layers = []
 
-    layers.append(TableModule( [ recHitsModel ] + singleVariableInputLayers ))
+    layers.append(TableModule( [ recHitsModel, Identity() ]  ))
 
     #----------
     # common output part
@@ -78,7 +73,7 @@ def makeModel():
     # to print the shape at this point
     # layers.append(PrintLayer())
 
-    layers.append(nn.Linear(332, nstates[2]))
+    layers.append(nn.Linear(320 + len(additionalVars), nstates[2]))
     nn.init.xavier_uniform(layers[-1].weight.data)
 
     layers.append(nn.ReLU())
