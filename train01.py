@@ -17,6 +17,8 @@ from Timer import Timer
 
 from utils import iterate_minibatches
 
+import cProfile
+
 #----------------------------------------------------------------------
 
 import signal
@@ -300,6 +302,13 @@ parser.add_argument('--gpu',
                     default = 0,
                     type = int,
                     help='index of GPU to run on',
+                    )
+
+parser.add_argument('--pprof',
+                    dest = "pythonProfiling",
+                    default = False,
+                    action = 'store_true',
+                    help='enable python profiling during training/evaluation (but not initial data loading)',
                     )
 
 parser.add_argument('modelFile',
@@ -595,6 +604,14 @@ print 'starting training at', time.asctime()
 
 
 epoch = 1
+
+
+signal.signal(signal.SIGINT, breakHandler)
+
+if options.pythonProfiling:
+    profiler = cProfile.Profile()
+    profiler.enable()
+
 while True:
 
     #----------
@@ -619,3 +636,10 @@ while True:
     if stopFlag:
         break
 
+# write out profiling data
+if options.pythonProfiling:
+    profiler.disable()
+    profiler.print_stats(sort = 'time')
+    outFname = os.path.join(options.outputDir, "pythonProfile.prof")
+    profiler.dump_stats(outFname)
+    print >> sys.stderr,"wrote profiling data to",outFname
