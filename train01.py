@@ -129,7 +129,7 @@ def epochIteration():
 
     startTime = time.time()
 
-    for indices, targets in iterate_minibatches(trainData['labels'], batchsize, shuffle = True, selectedIndices = selectedIndices):
+    for indices, targets in iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, selectedIndices = selectedIndices):
 
         if stopFlag:
             # do not save the current state of the model, the previous
@@ -176,7 +176,7 @@ def epochIteration():
 
         train_batches += 1
 
-        progbar.update(batchsize)
+        progbar.update(options.batchsize)
 
     # end of loop over minibatches
     progbar.close()
@@ -357,6 +357,13 @@ parser.add_argument('--resume',
                     help='resume training from latest checkpoint',
                     )
 
+parser.add_argument('--batch-size',
+                    default = 32,
+                    dest = "batchsize",
+                    type = int,
+                    help='minibatch size',
+                    )
+
 parser.add_argument('modelFile',
                     metavar = "modelFile.py",
                     type = str,
@@ -382,8 +389,6 @@ if options.resume:
         sys.exit(1)
 
 #----------
-
-batchsize = 32
 
 # if not None, set average background
 # weight to one and the average signal
@@ -500,7 +505,7 @@ else:
 
 #----------
 
-weightsTensor = torch.zeros(batchsize)
+weightsTensor = torch.zeros(options.batchsize)
 if options.cuda:
     weightsTensor = weightsTensor.cuda(options.cudaDevice)
 
