@@ -436,7 +436,13 @@ except ImportError, ex:
 #----------
 # setup logging
 #----------
-logfile = open(os.path.join(options.outputDir, "train.log"), "w")
+logfname = os.path.join(options.outputDir, "train.log")
+if os.path.exists(logfname):
+    # append
+    logfile = open(logfname, "a")
+    print >> logfile,"----------------------------------------------------------------------"
+else:
+    logfile = open(logfname, "w")
 
 fouts = [ sys.stdout, logfile ]
 
