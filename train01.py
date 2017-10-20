@@ -671,6 +671,25 @@ pickle.dump(
     dict(model = model,
          ), open(os.path.join(options.outputDir,
                                                      "model-structure.pkl"),"w"))
+if hasattr(torch,'onnx'):
+    import torch.onnx
+
+    # for onnx we need to give some input data
+    indices, targets = next(iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, 
+                                                selectedIndices = np.arange(len(trainData['labels']))))
+
+
+    print "forwarding ourselves"
+    model(trainInput, indices)
+    print "done formwarding"
+
+    fout = os.path.join(options.outputDir, "model-structure.onnx"),
+    torch.onnx.export(model,
+                      args = (trainInput, indices),
+                      f = fout,
+                      export_params = False, # untrained model
+                      )
+
 #----------
 
 print "params=",model.parameters()
