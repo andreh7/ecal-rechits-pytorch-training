@@ -233,18 +233,24 @@ def epochIteration():
 
     outputs = []
 
-    for input, targets in ((trainInput, trainData['labels']),
-                              (testInput, testData['labels'])):
+    for dataset in (trainDataSet, testDataSet):
 
-        numSamples = len(targets)
+        evalDataLoader = DataLoader(dataset, batch_size = evalBatchSize, shuffle = False)
+
+        numSamples = len(dataset)
         thisOutput = np.zeros(numSamples)
 
-        for start in range(0,numSamples,evalBatchSize):
+        for batchIndex, tensors in enumerate(evalDataLoader):
+            start = batchIndex * evalBatchSize
             end = min(start + evalBatchSize,numSamples)
 
-            output = model.forward(input, np.arange(start,end,dtype='int32'))
+            weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda)
+
+            output = model.forward(inputVars)
+
             if options.cuda:
                 output = output.cpu()
+
             thisOutput[start:end] = output.data.numpy().ravel()
 
         outputs.append(thisOutput)
