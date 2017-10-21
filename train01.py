@@ -169,8 +169,6 @@ def epochIteration():
         if weights.size(0) != options.batchsize:
             continue
 
-        # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
-
         if optimizer != None:
             optimizer.zero_grad()
 
