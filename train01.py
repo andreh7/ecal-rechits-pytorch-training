@@ -15,7 +15,7 @@ import tqdm
 
 from Timer import Timer
 
-from utils import iterate_minibatches
+from torch.utils.data import DataLoader
 
 import cProfile
 
@@ -129,12 +129,36 @@ def epochIteration():
 
     startTime = time.time()
 
-    for indices, targets in iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, selectedIndices = selectedIndices):
+    # see http://pytorch.org/tutorials/beginner/data_loading_tutorial.html
+    for batchIndex, tensors in enumerate(dataloader):
 
         if stopFlag:
             # do not save the current state of the model, the previous
             # iteration should be good enough
             return
+
+        # batchIndex is an int
+        #
+        # batchDatas is typically a list of torch tensors whose
+        # first dimension has the size of the minibatch
+
+        weights = tensors[0]
+
+        # skip the last batch which may be odd-sized, in particular
+        # does not fit the size of the weights tensor used for the loss
+        if weights.size(0) != options.batchsize:
+            continue
+
+        targets = tensors[1]
+        inputTensors = tensors[2:]
+
+        # looks like we have to convert the tensors to CUDA ourselves ?
+        if options.cuda:
+            inputVars = [ Variable(x.cuda(options.cudaDevice)) for x in inputTensors ]
+            targetVar = Variable(targets).cuda(options.cudaDevice)
+        else:
+            targetVars = Variable(targets)
+            inputVar = [ Variable(x) for x in inputTensors ]
 
         # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
 
@@ -143,13 +167,7 @@ def epochIteration():
 
         # forward through the network
         # at this point trainInput is still a numpy array
-        output = model.forward(trainInput, indices)
-
-        thisWeights = trainWeights[indices]
-
-        thisTarget = Variable(torch.from_numpy(targets))
-        if options.cuda:
-            thisTarget = thisTarget.cuda(options.cudaDevice)
+        output = model.forward(inputVars)
 
         # update weights for loss function
         # note that we use the argument size_average = False so the
@@ -157,14 +175,14 @@ def epochIteration():
         # (currently we average the weights over minibatch
         # as we most likely effectively did in the Lasagne training
         # but eventually we should average them over the entire training sample..)
-        weightsTensor[:] = torch.FloatTensor(thisWeights / thisWeights.sum())
+        weightsTensor[:] = weights / weights.sum()
 
         # calculate loss
         if lossFunc == None:
             # just calculate the AUC of the training and test sample
             break
 
-        loss = lossFunc.forward(output, thisTarget)
+        loss = lossFunc.forward(output, targetVar)
 
         sum_train_loss += loss.data[0]
 
@@ -656,10 +674,10 @@ if numOutputNodes != 1 and numOutputNodes != None:
 #
 # TODO: can we use slicing instead of unpacking these again for the minibatches ?
 with Timer("unpacking training dataset...", fouts) as t:
-    trainInput = makeInput(trainData, range(len(trainData['labels'])), inputDataIsSparse = True)
+    trainDataSet = makeDataSet(trainData)
 
 with Timer("unpacking test dataset...", fouts) as t:
-    testInput  = makeInput(testData, range(len(testData['labels'])), inputDataIsSparse = True)
+    testDataSet  = makeDataSet(testData)
 
 train_output = np.zeros(len(trainData['labels']))
 
@@ -703,6 +721,11 @@ if options.pythonProfiling:
     profiler = cProfile.Profile()
     profiler.enable()
 
+dataloader = DataLoader(trainDataSet, batch_size = options.batchsize, shuffle = True,
+                        # TODO: add support for selecting a subset
+                        # selectedIndices = selectedIndices
+                        # num_workers = 4
+                        )
 while True:
 
     #----------

@@ -90,9 +90,7 @@ def makeModel():
 
     result = nn.Sequential(*layers)
 
-    from IndexMerger import IndexMerger
-
-    return IndexMerger(result)
+    return result
 
 #----------------------------------------------------------------------
 # function to prepare input data samples
@@ -109,15 +107,44 @@ unpacker = rechitmodelutils.RecHitsUnpacker(
 
 #----------------------------------------------------------------------
 
-def makeInput(dataset, rowIndices, inputDataIsSparse):
-    assert inputDataIsSparse,"non-sparse input data is not supported"
+import torch.utils.data
 
-    #----------
-    # unpack the sparse data
-    #----------
-    recHits = unpacker.unpack(dataset, rowIndices)
+class MyDataset(torch.utils.data.Dataset):
+    # see also http://pytorch.org/tutorials/beginner/data_loading_tutorial.html
 
-    return [ recHits,
-             np.stack([ dataset[varname] for varname in additionalVars], axis = 1).reshape(-1, len(additionalVars))[rowIndices] ]
+    #----------------------------------------
+
+    def __init__(self, dataset, additionalVarNames):
+
+        self.weights = dataset['weights']
+        self.targets = dataset['labels']
+
+        self.nrows = len(self.weights)
+
+        # unpack rechits here
+        self.recHits = unpacker.unpack(dataset, range(self.nrows))
+
+        # unpack additionalVars into a 2D matrix
+        self.additionalVars = np.stack([ dataset[varname] for varname in additionalVarNames], axis = 1).squeeze()# .ravel()# .reshape(-1, len(additionalVars))[rowIndices] ]
+
+    #----------------------------------------
+
+    def __len__(self):
+        return self.nrows
+
+    #----------------------------------------
+
+    def __getitem__(self, index):
+        return [ self.weights[index],
+                 self.targets[index],
+                 self.recHits[index], self.additionalVars[index] ]
 
 #----------------------------------------------------------------------
+
+
+def makeDataSet(dataset):
+    # note that this is defined in the model file because
+    # the dataset we make out of the input files
+    # is model dependent
+
+    return MyDataset(dataset, additionalVars)
