@@ -700,6 +700,13 @@ with Timer("unpacking test dataset...", fouts) as t:
 train_output = np.zeros(len(trainData['labels']))
 
 #----------
+dataloader = DataLoader(trainDataSet, batch_size = options.batchsize, shuffle = True,
+                        # TODO: add support for selecting a subset
+                        # selectedIndices = selectedIndices
+                        # num_workers = 4
+                        )
+
+#----------
 # try to serialize the model structure itself
 # will not work if used e.g. on CPU instead of GPU etc.
 import cPickle as pickle
@@ -722,11 +729,6 @@ if options.pythonProfiling:
     profiler = cProfile.Profile()
     profiler.enable()
 
-dataloader = DataLoader(trainDataSet, batch_size = options.batchsize, shuffle = True,
-                        # TODO: add support for selecting a subset
-                        # selectedIndices = selectedIndices
-                        # num_workers = 4
-                        )
 while True:
 
     #----------
