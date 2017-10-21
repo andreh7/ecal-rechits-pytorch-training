@@ -311,10 +311,6 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     else:
         inputVars = [ Variable(x) for x in inputTensors ]
 
-    print "forwarding ourselves"
-    model(inputVars)
-    print "done formwarding"
-
     torch.onnx.export(model,
                       args = inputVars,
                       f = outputFname,
