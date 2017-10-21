@@ -296,20 +296,27 @@ def epochIteration():
 
 #----------------------------------------------------------------------
 
-def dumpModelOnnx(model, outputFname):
+def dumpModelOnnx(model, outputFname, cuda, dataloader):
     import torch.onnx
 
     # for onnx we need to give some input data
-    indices, targets = next(iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, 
-                                                selectedIndices = np.arange(len(trainData['labels']))))
+    # need to wrap dataloader in iter(..) because it does not have
+    # a next() method (__iter__() alone is not sufficient, 
+    # see https://stackoverflow.com/a/33956803/288875 )
+    tensors = next(iter(dataloader))
+    inputTensors = tensors[2:]
 
+    if cuda:
+        inputVars = [ Variable(x.cuda(options.cudaDevice)) for x in inputTensors ]
+    else:
+        inputVars = [ Variable(x) for x in inputTensors ]
 
     print "forwarding ourselves"
-    model(trainInput, indices)
+    model(inputVars)
     print "done formwarding"
 
     torch.onnx.export(model,
-                      args = (trainInput, indices),
+                      args = inputVars,
                       f = outputFname,
                       export_params = False, # untrained model
                       )
@@ -715,7 +722,7 @@ pickle.dump(
          ), open(os.path.join(options.outputDir,
                                                      "model-structure.pkl"),"w"))
 if hasattr(torch,'onnx'):
-    dumpModelOnnx(model, os.path.join(options.outputDir, "model-structure.onnx"))
+    dumpModelOnnx(model, os.path.join(options.outputDir, "model-structure.onnx"), options.cuda, dataloader)
 #----------
 
 print "params=",model.parameters()
