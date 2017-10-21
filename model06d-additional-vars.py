@@ -90,9 +90,7 @@ def makeModel():
 
     result = nn.Sequential(*layers)
 
-    from IndexMerger import IndexMerger
-
-    return IndexMerger(result)
+    return result
 
 #----------------------------------------------------------------------
 # function to prepare input data samples
