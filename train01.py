@@ -294,7 +294,25 @@ def epochIteration():
     #          *lasagne.layers.get_all_param_values(model))
     
 
+#----------------------------------------------------------------------
 
+def dumpModelOnnx(model, outputFname):
+    import torch.onnx
+
+    # for onnx we need to give some input data
+    indices, targets = next(iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, 
+                                                selectedIndices = np.arange(len(trainData['labels']))))
+
+
+    print "forwarding ourselves"
+    model(trainInput, indices)
+    print "done formwarding"
+
+    torch.onnx.export(model,
+                      args = (trainInput, indices),
+                      f = outputFname,
+                      export_params = False, # untrained model
+                      )
 
 #----------------------------------------------------------------------
 # main
@@ -690,24 +708,7 @@ pickle.dump(
          ), open(os.path.join(options.outputDir,
                                                      "model-structure.pkl"),"w"))
 if hasattr(torch,'onnx'):
-    import torch.onnx
-
-    # for onnx we need to give some input data
-    indices, targets = next(iterate_minibatches(trainData['labels'], options.batchsize, shuffle = True, 
-                                                selectedIndices = np.arange(len(trainData['labels']))))
-
-
-    print "forwarding ourselves"
-    model(trainInput, indices)
-    print "done formwarding"
-
-    fout = os.path.join(options.outputDir, "model-structure.onnx"),
-    torch.onnx.export(model,
-                      args = (trainInput, indices),
-                      f = fout,
-                      export_params = False, # untrained model
-                      )
-
+    dumpModelOnnx(model, os.path.join(options.outputDir, "model-structure.onnx"))
 #----------
 
 print "params=",model.parameters()
