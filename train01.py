@@ -76,6 +76,26 @@ def loadCheckpoint(outputDir, model, optimizer):
 
 #----------------------------------------------------------------------
 
+def unpackLoadedBatch(tensors, cuda):
+    # unpacks a batch of weights, targets and input variables
+    # according to our ordering convention and
+    # turns them into variables
+    weights      = tensors[0]
+    targets      = tensors[1]
+    inputTensors = tensors[2:]
+
+    # looks like we have to convert the tensors to CUDA ourselves ?
+    if options.cuda:
+        inputVars = [ Variable(x.cuda(options.cudaDevice), requires_grad = False) for x in inputTensors ]
+        targetVar = Variable(targets).cuda(options.cudaDevice)
+    else:
+        inputVars = [ Variable(x, requires_grad = False) for x in inputTensors ]
+        targetVar = Variable(targets)
+
+    return weights, targetVar, inputVars
+
+#----------------------------------------------------------------------
+
 def epochIteration():
     # iterates once over the training sample
     nowStr = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -142,23 +162,12 @@ def epochIteration():
         # batchDatas is typically a list of torch tensors whose
         # first dimension has the size of the minibatch
 
-        weights = tensors[0]
+        weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda)
 
         # skip the last batch which may be odd-sized, in particular
         # does not fit the size of the weights tensor used for the loss
         if weights.size(0) != options.batchsize:
             continue
-
-        targets = tensors[1]
-        inputTensors = tensors[2:]
-
-        # looks like we have to convert the tensors to CUDA ourselves ?
-        if options.cuda:
-            inputVars = [ Variable(x.cuda(options.cudaDevice)) for x in inputTensors ]
-            targetVar = Variable(targets).cuda(options.cudaDevice)
-        else:
-            targetVars = Variable(targets)
-            inputVar = [ Variable(x) for x in inputTensors ]
 
         # inputs = makeInput(trainData, indices, inputDataIsSparse = True)
 
@@ -304,12 +313,8 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     # a next() method (__iter__() alone is not sufficient, 
     # see https://stackoverflow.com/a/33956803/288875 )
     tensors = next(iter(dataloader))
-    inputTensors = tensors[2:]
 
-    if cuda:
-        inputVars = [ Variable(x.cuda(options.cudaDevice), requires_grad = False) for x in inputTensors ]
-    else:
-        inputVars = [ Variable(x, requires_grad = False) for x in inputTensors ]
+    weights, targetVar, inputVars = unpackLoadedBatch(tensors, cuda)
 
     torch.onnx.export(model,
                       args = inputVars,
