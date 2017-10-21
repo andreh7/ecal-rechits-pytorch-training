@@ -307,9 +307,9 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     inputTensors = tensors[2:]
 
     if cuda:
-        inputVars = [ Variable(x.cuda(options.cudaDevice)) for x in inputTensors ]
+        inputVars = [ Variable(x.cuda(options.cudaDevice), requires_grad = False) for x in inputTensors ]
     else:
-        inputVars = [ Variable(x) for x in inputTensors ]
+        inputVars = [ Variable(x, requires_grad = False) for x in inputTensors ]
 
     torch.onnx.export(model,
                       args = inputVars,
