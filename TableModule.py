@@ -19,9 +19,6 @@ class TableModule(nn.Module):
         # do not use self.modules() because 'self' might be included
         y = [ layer(xitem) for layer, xitem in zip(self.layers, x) ]
         
-        # also do the functionality of JoinTable
-        y = torch.cat(y, 1)
-
         return y
         
 #----------------------------------------------------------------------

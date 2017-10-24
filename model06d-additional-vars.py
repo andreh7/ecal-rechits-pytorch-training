@@ -57,6 +57,7 @@ def makeModel():
 
     from Identity import Identity
     from TableModule import TableModule
+    from JoinTable import JoinTable
 
     #----------
     # combine nn output from convolutional layers for
@@ -65,6 +66,7 @@ def makeModel():
     layers = []
 
     layers.append(TableModule( [ recHitsModel, Identity() ]  ))
+    layers.append(JoinTable(1))
 
     #----------
     # common output part
