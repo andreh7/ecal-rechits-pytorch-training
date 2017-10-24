@@ -56,7 +56,7 @@ def makeModel():
     #       instead of individual ones
 
     from Identity import Identity
-    from TableModule import TableModule
+    from ParallelTable import ParallelTable
     from JoinTable import JoinTable
 
     #----------
@@ -65,7 +65,7 @@ def makeModel():
     #----------
     layers = []
 
-    layers.append(TableModule( [ recHitsModel, Identity() ]  ))
+    layers.append(ParallelTable( [ recHitsModel, Identity() ]  ))
     layers.append(JoinTable(1))
 
     #----------

@@ -6,9 +6,11 @@ import torch
 #----------------------------------------------------------------------
 
 # adapted from https://github.com/amdegroot/pytorch-containers#paralleltable
-class TableModule(nn.Module):
+# see https://github.com/torch/nn/blob/master/doc/table.md#nn.ParallelTable
+# what the Torch module does
+class ParallelTable(nn.Module):
     def __init__(self, layers):
-        super(TableModule,self).__init__()
+        super(ParallelTable, self).__init__()
 
         for index, layer in enumerate(layers):
             self.add_module("module%d"% index, layer)
