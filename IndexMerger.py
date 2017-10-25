@@ -52,6 +52,6 @@ class IndexMerger(nn.Module):
 
             out.append(Variable(tensor))
 
-        return self.childModule.forward(out)
+        return self.childModule(out)
 
 #----------------------------------------------------------------------
