@@ -323,7 +323,14 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     torch.onnx.export(model,
                       args = inputVars,
                       f = outputFname,
-                      export_params = False, # untrained model
+                      # also write weights out so that
+                      # we get the initializer fields
+                      # and can distinguish between
+                      # variable inputs and trained weights.
+                      #
+                      # (even if the model is not trained
+                      # at the beginning)
+                      export_params = True,
                       )
 
 #----------------------------------------------------------------------
