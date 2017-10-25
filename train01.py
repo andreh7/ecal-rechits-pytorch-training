@@ -174,7 +174,7 @@ def epochIteration():
 
         # forward through the network
         # at this point trainInput is still a numpy array
-        output = model.forward(inputVars)
+        output = model(inputVars)
 
         # update weights for loss function
         # note that we use the argument size_average = False so the
@@ -246,7 +246,8 @@ def epochIteration():
 
             weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda)
 
-            output = model.forward(inputVars)
+            # forward pass
+            output = model(inputVars)
 
             if options.cuda:
                 output = output.cpu()
