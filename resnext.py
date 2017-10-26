@@ -134,6 +134,12 @@ class ModelCreator:
      
     #----------------------------------------
 
+    def addMarker(self, moduleList, markerText):
+        if self.addMarkers:
+            moduleList.append(Marker(markerText))
+
+    #----------------------------------------
+
     # aggregated residual transformation bottleneck layer, Form (C)
     def resnext_bottleneck_C(self, n, stride):
 
@@ -156,17 +162,20 @@ class ModelCreator:
         s.append(SBatchNorm(n*4))
         
         s = nn.Sequential(*s)
- 
-        return nn.Sequential(
-            Marker("begin resnet block C n=" + str(n) + " stride=" + str(stride)),
 
-            ConcatTable([
-                    s,
-                    self.shortcut(nInputPlane, n * 4, stride)]),
-            CAddTable(),
-           ReLU(),
-           Marker("end resnet block C n=" + str(n) + " stride=" + str(stride)),
+        modules = []
+        self.addMarker(modules, "begin resnet block C n=" + str(n) + " stride=" + str(stride))
+        modules.extend([
+                ConcatTable([
+                        s,
+                        self.shortcut(nInputPlane, n * 4, stride)]),
+                CAddTable(),
+                ReLU(),
+                ]
            )
+        self.addMarker(modules, "end resnet block C n=" + str(n) + " stride=" + str(stride))
+        return nn.Sequential(*modules)
+
     # end of function resnext_bottleneck 
 
     #----------------------------------------
@@ -210,6 +219,7 @@ class ModelCreator:
                  tensorType = torch.FloatTensor,
                  numInputPlanes = 3,
                  avgKernelSize = None,
+                 addMarkers = False,
                  ):
 
         assert shortcutType in ('A','B','C'), "unexpected shortcutType " + str(shortcutType)
@@ -223,6 +233,7 @@ class ModelCreator:
         self.tensorType     = tensorType
         self.numInputPlanes = numInputPlanes
         self.avgKernelSize  = avgKernelSize
+        self.addMarkers     = addMarkers
 
     #----------------------------------------
 
@@ -277,25 +288,25 @@ class ModelCreator:
             model.append(ReLU())
 
             # stage conv2
-            model.append(Marker("begin stage conv2"))
+            self.addMarker(model, "begin stage conv2")
             model.append(Max(kernel_size = (3,3), stride = (2,2), padding = (1,1)))
             model.append(self.layer(block, features =  64, count = nBlocks[0], stride = 1))
-            model.append(Marker("end stage conv2"))
+            self.addMarker(model, "end stage conv2")
 
             # stage conv3
-            model.append(Marker("begin stage conv3"))
+            self.addMarker(model, "begin stage conv3")
             model.append(self.layer(block, features = 128, count = nBlocks[1], stride = 2))
-            model.append(Marker("end stage conv3"))
+            self.addMarker(model, "end stage conv3")
 
             # stage conv4
-            model.append(Marker("begin stage conv4"))
+            self.addMarker(model,"begin stage conv4")
             model.append(self.layer(block, features = 256, count = nBlocks[2], stride = 2))
-            model.append(Marker("end stage conv4"))
+            self.addMarker(model, "end stage conv4")
 
             # stage conv5
-            model.append(Marker("begin stage conv5"))
+            self.addMarker(model,"begin stage conv5")
             model.append(self.layer(block, features = 512, count = nBlocks[3], stride = 2))
-            model.append(Marker("end stage conv5"))
+            self.addMarker(model, "end stage conv5")
 
             model.append(Avg(kernel_size = self.avgKernelSize, stride = (1, 1)))
 
@@ -321,17 +332,17 @@ class ModelCreator:
             model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
             model.append(SBatchNorm(64))
             model.append(ReLU())
-            model.append(Marker("begin layer 1"))
+            self.addMarker(model, "begin layer 1")
             model.append(self.layer(bottleneck, 64, n, 1))
-            model.append(Marker("end layer 1"))
+            self.addMarker(model, "end layer 1")
 
-            model.append(Marker("begin layer 2"))
+            self.addMarker(model, "begin layer 2")
             model.append(self.layer(bottleneck, 128, n, 2))
-            model.append(Marker("end layer 2"))
+            self.addMarker(model, "end layer 2")
 
-            model.append(Marker("begin layer 3"))
+            self.addMarker(model, "begin layer 3")
             model.append(self.layer(bottleneck, 256, n, 2))
-            model.append(Marker("end layer 3"))
+            self.addMarker(model, "end layer 3")
 
             model.append(Avg(kernel_size = self.avgKernelSize, stride = (1, 1)))
 
@@ -389,6 +400,7 @@ if __name__ == '__main__':
                          bottleneckType = 'resnext_C',
                          numInputPlanes = numInputPlanes,
                          avgKernelSize = avgKernelSize,
+                         addMarkers = True,
                         ).create()
     print model
 
