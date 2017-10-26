@@ -149,7 +149,7 @@ def createModel(depth, shortcutType = 'B',
     #----------
 
     # aggregated residual transformation bottleneck layer, Form (C)
-    def resnext_bottleneck_C(n, stride = None):
+    def resnext_bottleneck_C(n, stride):
         global iChannels
         nInputPlane = iChannels
 
