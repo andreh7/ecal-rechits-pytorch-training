@@ -35,7 +35,9 @@ def createModel(depth, shortcutType = 'B',
                 cardinality = None,
                 baseWidth = None,
                 dataset = None,
-                tensorType = torch.FloatTensor):
+                tensorType = torch.FloatTensor,
+                numInputPlanes = 3
+                ):
 
     assert shortcutType in ('A','B','C'), "unexpected shortcutType " + str(shortcutType)
 
@@ -235,10 +237,9 @@ def createModel(depth, shortcutType = 'B',
         # print(' | ResNet-' .. depth .. ' ImageNet')
         
         # ResNet ImageNet model
-        # is the first 3 for RGB / YUV ?
 
         # stage conv1
-        model.append(Convolution(3,64,kernel_size = (7,7), stride = 2, padding = (3,3)))
+        model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3)))
         model.append(SBatchNorm(64))
         model.append(ReLU())
 
@@ -281,7 +282,7 @@ def createModel(depth, shortcutType = 'B',
         iChannels = 64
         # print(' | ResNet-' .. depth .. ' ' .. opt.dataset)
   
-        model.append(Convolution(3,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
+        model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
         model.append(SBatchNorm(64))
         model.append(ReLU())
         model.append(Marker("begin layer 1"))
