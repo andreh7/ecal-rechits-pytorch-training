@@ -369,17 +369,27 @@ class ModelCreator:
 
 if __name__ == '__main__':
 
+    dataset, mode = 'cifar10', 'ecal'
+
+    if mode == 'ecal':
+        numInputPlanes = 1
+        avgKernelSize = 9
+    else:
+        numInputPlanes = 3
+        avgKernelSize = None
+
     # ResNeXt 16x64d for CIFAR10
     # parameters from command line arguments
     # at https://github.com/facebookresearch/ResNeXt#1x-complexity-configurations-reference-table
-    model = createModel(depth = 29, 
-                        cardinality = 16,
-                        baseWidth = 64,
+    model = ModelCreator(depth = 29, 
+                         cardinality = 16,
+                         baseWidth = 64,
 
-                        dataset = 'cifar10',
-                        bottleneckType = 'resnext_C',
-
-                        )
+                         dataset = dataset,
+                         bottleneckType = 'resnext_C',
+                         numInputPlanes = numInputPlanes,
+                         avgKernelSize = avgKernelSize,
+                        ).create()
     print model
 
     print "----------------------------------------------------------------------"
@@ -391,8 +401,13 @@ if __name__ == '__main__':
     # inputVar = Variable(torch.FloatTensor(32,3,224,224), requires_grad = False)
 
     # CIFAR
-    inputVar = Variable(torch.FloatTensor(32,3,32,32), requires_grad = False)
 
+    if mode == 'cifar10':
+        inputVar = Variable(torch.FloatTensor(32,3,32,32), requires_grad = False)
+
+    elif mode == 'ecal':
+        # our own ECAL images
+        inputVar = Variable(torch.FloatTensor(32,1,35,35), requires_grad = False)
 
     from PrintHook import PrintHook
 
