@@ -28,25 +28,13 @@ SBatchNorm = nn.BatchNorm2d
 
 #----------------------------------------------------------------------
 
-iChannels = None
+class ModelCreator:
 
-def createModel(depth, shortcutType = 'B',
-                bottleneckType = None,
-                cardinality = None,
-                baseWidth = None,
-                dataset = None,
-                tensorType = torch.FloatTensor,
-                numInputPlanes = 3,
-                avgKernelSize = None,
-                ):
-
-    assert shortcutType in ('A','B','C'), "unexpected shortcutType " + str(shortcutType)
-
-    #----------
+    #----------------------------------------
 
     # the shortcut layer is either identity or 1x1 convolution
-    def shortcut(nInputPlane, nOutputPlane, stride):
-        useConv = shortcutType == 'C' or (shortcutType == 'B' and nInputPlane != nOutputPlane)
+    def shortcut(self, nInputPlane, nOutputPlane, stride):
+        useConv = self.shortcutType == 'C' or (self.shortcutType == 'B' and nInputPlane != nOutputPlane)
         if useConv:
             # 1x1 convolution
             return nn.Sequential(
@@ -65,42 +53,10 @@ def createModel(depth, shortcutType = 'B',
         else:
            return Identity()
 
-    #----------
+    #----------------------------------------
 
-    
-    # original bottleneck residual layer
-    def resnet_bottleneck(n, stride):
-
-        global iChannels
-        nInputPlane = iChannels
-        iChannels = n * 4
-
-        s = nn.Sequential(
-            Convolution(nInputPlane,n,kernel_size = (1,1), stride = (1,1), padding = (0,0)),
-            SBatchNorm(n),
-            ReLU(),
-            Convolution(n,n,kernel_size = (3,3), stride = stride, padding = (1,1)),
-            SBatchNorm(n),
-            ReLU(),
-            Convolution(n,n*4, kernel_size = (1,1), stride = (1,1), padding = (0,0)),
-            SBatchNorm(n * 4),
-            )
-        
-        return nn.Sequential(
-            ConcatTable(
-                [s,
-                 shortcut(nInputPlane, n * 4, stride)]),
-            # TODO: do this inplace
-            CAddTable(),
-            ReLU(),
-            )
-
-    # end of function resnet_bottleneck
-
-    #----------
-   
     # aggregated residual transformation bottleneck layer, Form (B)
-    def split(nInputPlane, d, c, stride):
+    def split(self, nInputPlane, d, c, stride):
         cat = []
         for i in range(c):
             s = []
@@ -119,15 +75,45 @@ def createModel(depth, shortcutType = 'B',
         return cat
     # end of function split()
 
-    #----------
-    
-    def resnext_bottleneck_B(n, stride):
-        global iChannels
-        nInputPlane = iChannels
-        iChannels = n * 4
+    #----------------------------------------
+
+    # original bottleneck residual layer
+    def resnet_bottleneck(self, n, stride):
+
+        nInputPlane = self.iChannels
+        self.iChannels = n * 4
+
+        s = nn.Sequential(
+            Convolution(nInputPlane,n,kernel_size = (1,1), stride = (1,1), padding = (0,0)),
+            SBatchNorm(n),
+            ReLU(),
+            Convolution(n,n,kernel_size = (3,3), stride = stride, padding = (1,1)),
+            SBatchNorm(n),
+            ReLU(),
+            Convolution(n,n*4, kernel_size = (1,1), stride = (1,1), padding = (0,0)),
+            SBatchNorm(n * 4),
+            )
+        
+        return nn.Sequential(
+            ConcatTable(
+                [s,
+                 self.shortcut(nInputPlane, n * 4, stride)]),
+            # TODO: do this inplace
+            CAddTable(),
+            ReLU(),
+            )
+
+    # end of function resnet_bottleneck
+
+    #----------------------------------------
+
+    def resnext_bottleneck_B(self, n, stride):
+
+        nInputPlane = self.iChannels
+        self.iChannels = n * 4
   
-        D = int(math.floor(n * (opt.baseWidth/64.)))
-        C = cardinality
+        D = int(math.floor(n * (self.baseWidth/64.)))
+        C = self.cardinality
   
         s = []
         s.append(split(nInputPlane, D, C, stride))
@@ -140,24 +126,23 @@ def createModel(depth, shortcutType = 'B',
         return nn.Sequential(
             ConcatTable([
                     s,
-                    shortcut(nInputPlane, n * 4, stride)]),
+                    self.shortcut(nInputPlane, n * 4, stride)]),
             CAddTable(true),
             ReLU())
 
     # end of function resnext_bottleneck_B
      
-    #----------
+    #----------------------------------------
 
     # aggregated residual transformation bottleneck layer, Form (C)
-    def resnext_bottleneck_C(n, stride):
-        global iChannels
-        nInputPlane = iChannels
+    def resnext_bottleneck_C(self, n, stride):
 
-        iChannels = n * 4
+        nInputPlane = self.iChannels
+        self.iChannels = n * 4
  
         import math
-        D = int(math.floor(n * (baseWidth/64.)))
-        C = cardinality
+        D = int(math.floor(n * (self.baseWidth/64.)))
+        C = self.cardinality
         
         s = []
 
@@ -177,17 +162,17 @@ def createModel(depth, shortcutType = 'B',
 
             ConcatTable([
                     s,
-                    shortcut(nInputPlane, n * 4, stride)]),
+                    self.shortcut(nInputPlane, n * 4, stride)]),
             CAddTable(),
            ReLU(),
            Marker("end resnet block C n=" + str(n) + " stride=" + str(stride)),
            )
     # end of function resnext_bottleneck 
 
-    #----------
+    #----------------------------------------
 
     # Creates count residual blocks with specified number of features
-    def layer(block, features, count, stride):
+    def layer(self, block, features, count, stride):
         modules = [] 
         for i in range(count):
             
@@ -198,130 +183,9 @@ def createModel(depth, shortcutType = 'B',
 
         return nn.Sequential(*modules)
 
-    #----------
+    #----------------------------------------
 
- 
-    model = []
-
-    if bottleneckType == 'resnet':
-        bottleneck = resnet_bottleneck
-        # print('Deploying ResNet bottleneck block')
-    elif bottleneckType == 'resnext_B':
-        bottleneck = resnext_bottleneck_B
-        # print('Deploying ResNeXt bottleneck block form B')
-    elif bottleneckType == 'resnext_C':
-        bottleneck = resnext_bottleneck_C
-        # print('Deploying ResNeXt bottleneck block form C (group convolution)')
-    else:
-        raise Exception('invalid bottleneck type: ' + str(bottleneckType))
-
-    
-    #----------
-
-    global iChannels
-    if dataset == 'imagenet' :
-
-        if avgKernelSize is None:
-            avgKernelSize = 7
-
-        # configurations for ResNet:
-        #  num. residual blocks, num features, residual block function
-        cfg = {
-            # from the paper, table 1 left 
-            # (nBlocks is the number after multiplication sign and 
-            # big right closing bracket)
-            50 : dict(nBlocks = (3, 4, 6, 3),  nFeatures = 2048, block = bottleneck),
-
-           101 : dict(nBlocks = (3, 4, 23, 3), nFeatures = 2048, block = bottleneck),
-           152 : dict(nBlocks = (3, 8, 36, 3), nFeatures = 2048, block = bottleneck),
-        }
-        
-        assert cfg.has_key(depth), 'Invalid depth: ' + str(depth)
-        nBlocks, nFeatures, block = cfg[depth]['nBlocks'], cfg[depth]['nFeatures'], cfg[depth]['block']
-        iChannels = 64
-        # print(' | ResNet-' .. depth .. ' ImageNet')
-        
-        # ResNet ImageNet model
-
-        # stage conv1
-        model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3)))
-        model.append(SBatchNorm(64))
-        model.append(ReLU())
-
-        # stage conv2
-        model.append(Marker("begin stage conv2"))
-        model.append(Max(kernel_size = (3,3), stride = (2,2), padding = (1,1)))
-        model.append(layer(block, features =  64, count = nBlocks[0], stride = 1))
-        model.append(Marker("end stage conv2"))
-
-        # stage conv3
-        model.append(Marker("begin stage conv3"))
-        model.append(layer(block, features = 128, count = nBlocks[1], stride = 2))
-        model.append(Marker("end stage conv3"))
-
-        # stage conv4
-        model.append(Marker("begin stage conv4"))
-        model.append(layer(block, features = 256, count = nBlocks[2], stride = 2))
-        model.append(Marker("end stage conv4"))
-
-        # stage conv5
-        model.append(Marker("begin stage conv5"))
-        model.append(layer(block, features = 512, count = nBlocks[3], stride = 2))
-        model.append(Marker("end stage conv5"))
-
-        model.append(Avg(kernel_size = avgKernelSize, stride = (1, 1)))
-
-        # see also https://github.com/torch/nn/blob/master/doc/simple.md#nn.View
-        # model.append(nn.View(nFeatures):setNumInputDims(3))
-        
-        model.append(View(nFeatures))
-
-        model.append(nn.Linear(nFeatures, 1000))
-    
-    elif dataset == 'cifar10' or dataset == 'cifar100':
-
-        if avgKernelSize is None:
-            avgKernelSize = 8
-
-        # model type specifies number of layers for CIFAR-10 and CIFAR-100 model
-        assert (depth - 2) % 9 == 0, 'depth should be one of 29, 38, 47, 56, 101'
-        n = (depth - 2) / 9
-        
-        iChannels = 64
-        # print(' | ResNet-' .. depth .. ' ' .. opt.dataset)
-  
-        model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
-        model.append(SBatchNorm(64))
-        model.append(ReLU())
-        model.append(Marker("begin layer 1"))
-        model.append(layer(bottleneck, 64, n, 1))
-        model.append(Marker("end layer 1"))
-
-        model.append(Marker("begin layer 2"))
-        model.append(layer(bottleneck, 128, n, 2))
-        model.append(Marker("end layer 2"))
-
-        model.append(Marker("begin layer 3"))
-        model.append(layer(bottleneck, 256, n, 2))
-        model.append(Marker("end layer 3"))
-
-        model.append(Avg(kernel_size = avgKernelSize, stride = (1, 1)))
-
-        # model.append(nn.View(1024):setNumInputDims(3))
-        model.append(View(1024))
-
-        
-        if dataset == 'cifar10':
-            nCategories = 10  
-        else: 
-            nCategories = 100
-        model.append(nn.Linear(1024, nCategories))
-    else:
-        raise Exception('invalid dataset: ' + str(dataset))
-
-    #----------
- 
-    def ConvInit(name):
+    def ConvInit(self, name):
         
        for v in model.modules():
            n = v.kW*v.kH*v.nOutputPlane
@@ -334,23 +198,172 @@ def createModel(depth, shortcutType = 'B',
 
     # end of function ConvInit
 
+    #----------------------------------------
+
+    def __init__(self,
+                 depth, 
+                 shortcutType = 'B',
+                 bottleneckType = None,
+                 cardinality = None,
+                 baseWidth = None,
+                 dataset = None,
+                 tensorType = torch.FloatTensor,
+                 numInputPlanes = 3,
+                 avgKernelSize = None,
+                 ):
+
+        assert shortcutType in ('A','B','C'), "unexpected shortcutType " + str(shortcutType)
+
+        self.depth          = depth
+        self.shortcutType   = shortcutType
+        self.bottleneckType = bottleneckType
+        self.cardinality    = cardinality
+        self.baseWidth      = baseWidth   
+        self.dataset        = dataset     
+        self.tensorType     = tensorType
+        self.numInputPlanes = numInputPlanes
+        self.avgKernelSize  = avgKernelSize
+
+    #----------------------------------------
+
+    def create(self):
+
+        self.iChannels = None
+
+        model = []
+
+        if self.bottleneckType == 'resnet':
+            bottleneck = self.resnet_bottleneck
+            # print('Deploying ResNet bottleneck block')
+        elif self.bottleneckType == 'resnext_B':
+            bottleneck = self.resnext_bottleneck_B
+            # print('Deploying ResNeXt bottleneck block form B')
+        elif self.bottleneckType == 'resnext_C':
+            bottleneck = self.resnext_bottleneck_C
+            # print('Deploying ResNeXt bottleneck block form C (group convolution)')
+        else:
+            raise Exception('invalid bottleneck type: ' + str(self.bottleneckType))
+
+
+        #----------
+
+        if dataset == 'imagenet' :
+
+            if self.avgKernelSize is None:
+                self.avgKernelSize = 7
+
+            # configurations for ResNet:
+            #  num. residual blocks, num features, residual block function
+            cfg = {
+                # from the paper, table 1 left 
+                # (nBlocks is the number after multiplication sign and 
+                # big right closing bracket)
+                50 : dict(nBlocks = (3, 4, 6, 3),  nFeatures = 2048, block = bottleneck),
+
+               101 : dict(nBlocks = (3, 4, 23, 3), nFeatures = 2048, block = bottleneck),
+               152 : dict(nBlocks = (3, 8, 36, 3), nFeatures = 2048, block = bottleneck),
+            }
+
+            assert cfg.has_key(self.depth), 'Invalid depth: ' + str(self.depth)
+            nBlocks, nFeatures, block = cfg[self.depth]['nBlocks'], cfg[self.depth]['nFeatures'], cfg[self.depth]['block']
+            self.iChannels = 64
+            # print(' | ResNet-' .. self.depth .. ' ImageNet')
+
+            # ResNet ImageNet model
+
+            # stage conv1
+            model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3)))
+            model.append(SBatchNorm(64))
+            model.append(ReLU())
+
+            # stage conv2
+            model.append(Marker("begin stage conv2"))
+            model.append(Max(kernel_size = (3,3), stride = (2,2), padding = (1,1)))
+            model.append(self.layer(block, features =  64, count = nBlocks[0], stride = 1))
+            model.append(Marker("end stage conv2"))
+
+            # stage conv3
+            model.append(Marker("begin stage conv3"))
+            model.append(self.layer(block, features = 128, count = nBlocks[1], stride = 2))
+            model.append(Marker("end stage conv3"))
+
+            # stage conv4
+            model.append(Marker("begin stage conv4"))
+            model.append(self.layer(block, features = 256, count = nBlocks[2], stride = 2))
+            model.append(Marker("end stage conv4"))
+
+            # stage conv5
+            model.append(Marker("begin stage conv5"))
+            model.append(self.layer(block, features = 512, count = nBlocks[3], stride = 2))
+            model.append(Marker("end stage conv5"))
+
+            model.append(Avg(kernel_size = self.avgKernelSize, stride = (1, 1)))
+
+            # see also https://github.com/torch/nn/blob/master/doc/simple.md#nn.View
+            # model.append(nn.View(nFeatures):setNumInputDims(3))
+
+            model.append(View(nFeatures))
+
+            model.append(nn.Linear(nFeatures, 1000))
+
+        elif dataset == 'cifar10' or dataset == 'cifar100':
+
+            if self.avgKernelSize is None:
+                self.avgKernelSize = 8
+
+            # model type specifies number of layers for CIFAR-10 and CIFAR-100 model
+            assert (self.depth - 2) % 9 == 0, 'depth should be one of 29, 38, 47, 56, 101'
+            n = (self.depth - 2) / 9
+
+            self.iChannels = 64
+            # print(' | ResNet-' .. depth .. ' ' .. opt.dataset)
+
+            model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
+            model.append(SBatchNorm(64))
+            model.append(ReLU())
+            model.append(Marker("begin layer 1"))
+            model.append(self.layer(bottleneck, 64, n, 1))
+            model.append(Marker("end layer 1"))
+
+            model.append(Marker("begin layer 2"))
+            model.append(self.layer(bottleneck, 128, n, 2))
+            model.append(Marker("end layer 2"))
+
+            model.append(Marker("begin layer 3"))
+            model.append(self.layer(bottleneck, 256, n, 2))
+            model.append(Marker("end layer 3"))
+
+            model.append(Avg(kernel_size = self.avgKernelSize, stride = (1, 1)))
+
+            # model.append(nn.View(1024):setNumInputDims(3))
+            model.append(View(1024))
+
+
+            if dataset == 'cifar10':
+                nCategories = 10  
+            else: 
+                nCategories = 100
+            model.append(nn.Linear(1024, nCategories))
+        else:
+            raise Exception('invalid dataset: ' + str(dataset))
+
     #----------
 
-    model = nn.Sequential(*model)
+        model = nn.Sequential(*model)
 
-    model.type(tensorType)
+        model.type(self.tensorType)
+
+        # if cudnn == 'deterministic':
+        #     def helper(m):
+        #         if hasattr(m,'setMode'):
+        #             m.setMode(1,1,1)
+        # 
+        #     model.apply(helper)
+
+        # model.modules()[0].gradInput = None
  
-    # if cudnn == 'deterministic':
-    #     def helper(m):
-    #         if hasattr(m,'setMode'):
-    #             m.setMode(1,1,1)
-    # 
-    #     model.apply(helper)
- 
-    # model.modules()[0].gradInput = None
- 
-    return model
-# end of function createModel()
+        return model
+    # end of function create()
  
 #----------------------------------------------------------------------
 
