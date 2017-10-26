@@ -36,7 +36,8 @@ def createModel(depth, shortcutType = 'B',
                 baseWidth = None,
                 dataset = None,
                 tensorType = torch.FloatTensor,
-                numInputPlanes = 3
+                numInputPlanes = 3,
+                avgKernelSize = None,
                 ):
 
     assert shortcutType in ('A','B','C'), "unexpected shortcutType " + str(shortcutType)
@@ -219,6 +220,10 @@ def createModel(depth, shortcutType = 'B',
 
     global iChannels
     if dataset == 'imagenet' :
+
+        if avgKernelSize is None:
+            avgKernelSize = 7
+
         # configurations for ResNet:
         #  num. residual blocks, num features, residual block function
         cfg = {
@@ -264,7 +269,7 @@ def createModel(depth, shortcutType = 'B',
         model.append(layer(block, features = 512, count = nBlocks[3], stride = 2))
         model.append(Marker("end stage conv5"))
 
-        model.append(Avg(kernel_size = (7, 7), stride = (1, 1)))
+        model.append(Avg(kernel_size = avgKernelSize, stride = (1, 1)))
 
         # see also https://github.com/torch/nn/blob/master/doc/simple.md#nn.View
         # model.append(nn.View(nFeatures):setNumInputDims(3))
@@ -274,6 +279,9 @@ def createModel(depth, shortcutType = 'B',
         model.append(nn.Linear(nFeatures, 1000))
     
     elif dataset == 'cifar10' or dataset == 'cifar100':
+
+        if avgKernelSize is None:
+            avgKernelSize = 8
 
         # model type specifies number of layers for CIFAR-10 and CIFAR-100 model
         assert (depth - 2) % 9 == 0, 'depth should be one of 29, 38, 47, 56, 101'
@@ -297,7 +305,7 @@ def createModel(depth, shortcutType = 'B',
         model.append(layer(bottleneck, 256, n, 2))
         model.append(Marker("end layer 3"))
 
-        model.append(Avg(kernel_size = (8, 8), stride = (1, 1)))
+        model.append(Avg(kernel_size = avgKernelSize, stride = (1, 1)))
 
         # model.append(nn.View(1024):setNumInputDims(3))
         model.append(View(1024))
