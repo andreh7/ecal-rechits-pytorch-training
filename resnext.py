@@ -258,7 +258,7 @@ class ModelCreator:
 
         #----------
 
-        if dataset == 'imagenet' :
+        if self.dataset == 'imagenet' :
 
             if self.avgKernelSize is None:
                 self.avgKernelSize = 7
@@ -317,7 +317,7 @@ class ModelCreator:
 
             model.append(nn.Linear(nFeatures, 1000))
 
-        elif dataset == 'cifar10' or dataset == 'cifar100':
+        elif self.dataset == 'cifar10' or self.dataset == 'cifar100':
 
             if self.avgKernelSize is None:
                 self.avgKernelSize = 8
@@ -350,7 +350,7 @@ class ModelCreator:
             model.append(View(1024))
 
 
-            if dataset == 'cifar10':
+            if self.dataset == 'cifar10':
                 nCategories = 10  
             else: 
                 nCategories = 100
