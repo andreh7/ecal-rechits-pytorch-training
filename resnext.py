@@ -38,7 +38,7 @@ class ModelCreator:
         if useConv:
             # 1x1 convolution
             return nn.Sequential(
-                Convolution(nInputPlane, nOutputPlane, kernel_size = (1, 1), stride = stride),
+                Convolution(nInputPlane, nOutputPlane, kernel_size = (1, 1), stride = stride, bias = False),
                 SBatchNorm(nOutputPlane)
                 )
         elif nInputPlane != nOutputPlane:
@@ -60,10 +60,10 @@ class ModelCreator:
         cat = []
         for i in range(c):
             s = []
-            s.append(Convolution(nInputPlane,d,kernel_size = (1,1), stride = (1,1), padding = (0,0)))
+            s.append(Convolution(nInputPlane,d,kernel_size = (1,1), stride = (1,1), padding = (0,0), bias = False))
             s.append(SBatchNorm(d))
             s.append(ReLU())
-            s.append(Convolution(d,d,kernel_size = (3,3), stride = stride, padding = (1,1)))
+            s.append(Convolution(d,d,kernel_size = (3,3), stride = stride, padding = (1,1), bias = False))
             s.append(SBatchNorm(d))
             s.append(ReLU())
 
@@ -84,13 +84,13 @@ class ModelCreator:
         self.iChannels = n * 4
 
         s = nn.Sequential(
-            Convolution(nInputPlane,n,kernel_size = (1,1), stride = (1,1), padding = (0,0)),
+            Convolution(nInputPlane,n,kernel_size = (1,1), stride = (1,1), padding = (0,0), bias = False),
             SBatchNorm(n),
             ReLU(),
-            Convolution(n,n,kernel_size = (3,3), stride = stride, padding = (1,1)),
+            Convolution(n,n,kernel_size = (3,3), stride = stride, padding = (1,1), bias = False),
             SBatchNorm(n),
             ReLU(),
-            Convolution(n,n*4, kernel_size = (1,1), stride = (1,1), padding = (0,0)),
+            Convolution(n,n*4, kernel_size = (1,1), stride = (1,1), padding = (0,0), bias = False),
             SBatchNorm(n * 4),
             )
         
@@ -118,7 +118,7 @@ class ModelCreator:
         s = []
         s.append(split(nInputPlane, D, C, stride))
         s.append(JoinTable(2))
-        s.append(Convolution(D*C,n*4,kernel_size = (1,1), stride = (1,1), padding = (0,0)))
+        s.append(Convolution(D*C,n*4,kernel_size = (1,1), stride = (1,1), padding = (0,0), bias = False))
         s.append(SBatchNorm(n*4))
   
         s = nn.Sequential(*s)
@@ -152,13 +152,13 @@ class ModelCreator:
         
         s = []
 
-        s.append(Convolution(nInputPlane,D*C,kernel_size = (1,1), stride = 1, padding = (0,0)))
+        s.append(Convolution(nInputPlane,D*C,kernel_size = (1,1), stride = 1, padding = (0,0), bias = False))
         s.append(SBatchNorm(D*C))
         s.append(ReLU())
-        s.append(Convolution(D*C,D*C,kernel_size = (3,3), stride = stride, padding = (1,1), groups = C))
+        s.append(Convolution(D*C,D*C,kernel_size = (3,3), stride = stride, padding = (1,1), groups = C, bias = False))
         s.append(SBatchNorm(D*C))
         s.append(ReLU())
-        s.append(Convolution(D*C,n*4, kernel_size = (1,1), stride = 1, padding = (0,0)))
+        s.append(Convolution(D*C,n*4, kernel_size = (1,1), stride = 1, padding = (0,0), bias = False))
         s.append(SBatchNorm(n*4))
         
         s = nn.Sequential(*s)
@@ -283,7 +283,7 @@ class ModelCreator:
             # ResNet ImageNet model
 
             # stage conv1
-            model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3)))
+            model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3), bias = False))
             model.append(SBatchNorm(64))
             model.append(ReLU())
 
@@ -329,7 +329,7 @@ class ModelCreator:
             self.iChannels = 64
             # print(' | ResNet-' .. depth .. ' ' .. opt.dataset)
 
-            model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1)))
+            model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1), bias = False))
             model.append(SBatchNorm(64))
             model.append(ReLU())
             self.addMarker(model, "begin layer 1")
