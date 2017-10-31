@@ -358,21 +358,28 @@ class ModelCreator:
         else:
             raise Exception('invalid dataset: ' + str(dataset))
 
-    #----------
+        #----------
 
         model = nn.Sequential(*model)
 
         model.type(self.tensorType)
 
-        # if cudnn == 'deterministic':
-        #     def helper(m):
-        #         if hasattr(m,'setMode'):
-        #             m.setMode(1,1,1)
-        # 
-        #     model.apply(helper)
+        #----------
+        # initialization
+        #----------
 
-        # model.modules()[0].gradInput = None
- 
+        def initFunc(module):
+            if isinstance(module, nn.modules.conv.Conv2d):
+                nn.init.kaiming_normal(module.weight)
+            elif isinstance(module, nn.modules.batchnorm.BatchNorm2d):
+                module.weight.data[...] = 1
+                module.bias.data[...] = 0
+            elif isinstance(module, nn.modules.linear.Linear):
+                module.bias.data[...] = 0
+                nn.init.kaiming_normal(module.weight)
+
+        model.apply(initFunc)
+
         return model
     # end of function create()
  
