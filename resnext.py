@@ -283,7 +283,7 @@ class ModelCreator:
             # ResNet ImageNet model
 
             # stage conv1
-            model.append(Convolution(numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3), bias = False))
+            model.append(Convolution(self.numInputPlanes,64,kernel_size = (7,7), stride = 2, padding = (3,3), bias = False))
             model.append(SBatchNorm(64))
             model.append(ReLU())
 
@@ -329,7 +329,7 @@ class ModelCreator:
             self.iChannels = 64
             # print(' | ResNet-' .. depth .. ' ' .. opt.dataset)
 
-            model.append(Convolution(numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1), bias = False))
+            model.append(Convolution(self.numInputPlanes,64,kernel_size = (3,3), stride = (1,1), padding = (1,1), bias = False))
             model.append(SBatchNorm(64))
             model.append(ReLU())
             self.addMarker(model, "begin layer 1")
