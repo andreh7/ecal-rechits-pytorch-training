@@ -76,17 +76,21 @@ def loadCheckpoint(outputDir, model, optimizer):
 
 #----------------------------------------------------------------------
 
-def unpackLoadedBatch(tensors, cuda):
+def unpackLoadedBatch(tensors, cuda, volatile):
     # unpacks a batch of weights, targets and input variables
     # according to our ordering convention and
     # turns them into variables
+    #
+    # @param volatile is typically set to True for inference
     weights      = tensors[0]
     targets      = tensors[1]
     inputTensors = tensors[2:]
 
     # looks like we have to convert the tensors to CUDA ourselves ?
     if options.cuda:
-        inputVars = [ Variable(x.cuda(options.cudaDevice), requires_grad = False) for x in inputTensors ]
+        inputVars = [ Variable(x.cuda(options.cudaDevice), requires_grad = False, volatile = volatile) for x in inputTensors ]
+
+        # TODO: should we also use volatile here ?
         targetVar = Variable(targets).cuda(options.cudaDevice)
     else:
         inputVars = [ Variable(x, requires_grad = False) for x in inputTensors ]
@@ -162,7 +166,7 @@ def epochIteration():
         # batchDatas is typically a list of torch tensors whose
         # first dimension has the size of the minibatch
 
-        weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda)
+        weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda, volatile = False)
 
         # skip the last batch which may be odd-sized, in particular
         # does not fit the size of the weights tensor used for the loss
@@ -244,7 +248,7 @@ def epochIteration():
             start = batchIndex * evalBatchSize
             end = min(start + evalBatchSize,numSamples)
 
-            weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda)
+            weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda, volatile = True)
 
             # forward pass
             output = model(inputVars)
@@ -319,7 +323,7 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     # see https://stackoverflow.com/a/33956803/288875 )
     tensors = next(iter(dataloader))
 
-    weights, targetVar, inputVars = unpackLoadedBatch(tensors, cuda)
+    weights, targetVar, inputVars = unpackLoadedBatch(tensors, cuda, volatile = True)
 
     torch.onnx.export(model,
                       args = inputVars,
