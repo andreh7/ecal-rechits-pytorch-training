@@ -218,6 +218,7 @@ class ModelCreator:
                  dataset = None,
                  tensorType = torch.FloatTensor,
                  numInputPlanes = 3,
+                 numOutputNodes = None,
                  avgKernelSize = None,
                  addMarkers = False,
                  ):
@@ -234,6 +235,7 @@ class ModelCreator:
         self.numInputPlanes = numInputPlanes
         self.avgKernelSize  = avgKernelSize
         self.addMarkers     = addMarkers
+        self.numOutputNodes = numOutputNodes
 
     #----------------------------------------
 
@@ -315,7 +317,10 @@ class ModelCreator:
 
             model.append(View(nFeatures))
 
-            model.append(nn.Linear(nFeatures, 1000))
+            if self.numOutputNodes is None:
+                self.numOutputNodes = 1000
+
+            model.append(nn.Linear(nFeatures, self.numOutputNodes))
 
         elif self.dataset == 'cifar10' or self.dataset == 'cifar100':
 
@@ -349,12 +354,12 @@ class ModelCreator:
             # model.append(nn.View(1024):setNumInputDims(3))
             model.append(View(1024))
 
-
-            if self.dataset == 'cifar10':
-                nCategories = 10  
-            else: 
-                nCategories = 100
-            model.append(nn.Linear(1024, nCategories))
+            if self.numOutputNodes is None:
+                if self.dataset == 'cifar10':
+                    self.numOutputNodes = 10
+                else: 
+                    self.numOutputNodes = 100
+            model.append(nn.Linear(1024, self.numOutputNodes))
         else:
             raise Exception('invalid dataset: ' + str(dataset))
 
