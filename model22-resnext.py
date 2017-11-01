@@ -13,6 +13,14 @@ import math
 import torch.nn as nn
 import torch.nn.functional as F
 
+# see http://torch.ch/blog/2016/02/04/resnets.html
+# and https://discuss.pytorch.org/t/pytorch-performance/3079
+
+# this seems not to exist in PyTorch ?
+# torch.backends.cudnn.fastest = True
+
+torch.backends.cudnn.benchmark = True
+
 #----------------------------------------------------------------------
 # model
 #----------------------------------------------------------------------
