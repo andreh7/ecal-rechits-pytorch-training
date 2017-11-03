@@ -68,8 +68,12 @@ def loadCheckpoint(outputDir, model, optimizer):
     
     state = torch.load(latestEpochFile)
 
-    model.load_state_dict(state['model_state'])
-    optimizer.load_state_dict(state['optimizer_state'])
+    if options.cuda:
+        optimizer.cuda(options.cudaDevice)
+        model.cuda(options.cudaDevice)
+    else:
+        optimizer.cpu()
+        model.cpu()
     
     return latestEpoch
 
