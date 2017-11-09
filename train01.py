@@ -343,6 +343,42 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
                       )
 
 #----------------------------------------------------------------------
+
+def makeDefaultLoss(numOutputNodes, weightsTensor, trainWeights, testWeights):
+    # returns the loss function (depending on the number
+    # of output nodes) and reshaped train and test weights
+
+    #----------
+    # check whether we have one or two outputs 
+    #----------
+    if numOutputNodes == 1:
+        lossFunc = nn.BCELoss(weightsTensor, size_average = False)
+
+        trainWeights = trainWeights.reshape((-1,1))
+        testWeights  = testWeights.reshape((-1,1))
+
+    elif numOutputNodes == 2:
+
+        # we have two outputs (typically from a softmax output layer)
+        lossFunc = nn.CrossEntropyLoss(weightsTensor, size_average = False)
+
+        trainWeights = trainData['weights'].reshape((-1,))
+        testWeights  = testData['weights'].reshape((-1,))
+
+    elif numOutputNodes == None:
+        # do not apply a loss function (e.g. useful
+        # to calculate the AUC of input variables)
+        lossFunc = None
+
+        trainWeights = trainData['weights'].reshape((-1,1))
+        testWeights  = testData['weights'].reshape((-1,1))
+
+    else:
+        raise Exception("don't know how to handle %d output nodes" % numOutputNodes)
+
+    return lossFunc, trainWeights, testWeights
+
+#----------------------------------------------------------------------
 # main
 #----------------------------------------------------------------------
 
@@ -579,33 +615,14 @@ weightsTensor = torch.zeros(options.batchsize)
 if options.cuda:
     weightsTensor = weightsTensor.cuda(options.cudaDevice)
 
+# build the loss function and reshape
+# the training weights tensor
 #----------
-# check whether we have one or two outputs 
-#----------
-if numOutputNodes == 1:
-    lossFunc = nn.BCELoss(weightsTensor, size_average = False)
 
-    trainWeights = trainData['weights'].reshape((-1,1))
-    testWeights  = testData['weights'].reshape((-1,1))
+if not globals().has_key('makeLoss'):
+    makeLoss = makeDefaultLoss
 
-elif numOutputNodes == 2:
-
-    # we have two outputs (typically from a softmax output layer)
-    lossFunc = nn.CrossEntropyLoss(weightsTensor, size_average = False)
-
-    trainWeights = trainData['weights'].reshape((-1,))
-    testWeights  = testData['weights'].reshape((-1,))
-
-elif numOutputNodes == None:
-    # do not apply a loss function (e.g. useful
-    # to calculate the AUC of input variables)
-    lossFunc = None
-
-    trainWeights = trainData['weights'].reshape((-1,1))
-    testWeights  = testData['weights'].reshape((-1,1))
-
-else:
-    raise Exception("don't know how to handle %d output nodes" % numOutputNodes)
+lossFunc, trainWeights, testWeights = makeLoss(numOutputNodes, weightsTensor, trainData['weights'], testData['weights'])
 
 #----------
 # pt/eta reweighting
