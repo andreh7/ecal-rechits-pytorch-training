@@ -48,7 +48,13 @@ dataDesc = dict(
 doPtEtaReweighting = True
 
 # global variable which can be modified from the command line
-additionalVars = []
+if not globals().has_key('additionalVars'):
+    global additionalVars
+    additionalVars = []
+
+if not globals().has_key('normalizeAdditionalVars'):
+    global noramlizeAdditionalVars
+    normalizeAdditionalVars = True
 
 #----------------------------------------------------------------------
 
@@ -168,7 +174,8 @@ def __datasetLoadFunctionHelper(fnames, size, cuda, isTraining, reweightPtEta, l
     # normalize auxiliary variables to zero mean and unit variance
     #----------
     if additionalVars:
-        otherVars.normalize()
+        if normalizeAdditionalVars:
+            otherVars.normalize()
 
         #----------
         # add auxiliary variables
