@@ -104,7 +104,9 @@ class Model(nn.Module):
         # simply multiply the input rechit values 
         # with the predicted weights and sum
 
-        return torch.dot(weights.view(-1), x[0].view(-1))
+        minibatch_size = weights.size(0)
+
+        return (weights.view(minibatch_size, -1) * x[0].view(minibatch_size, -1)).sum(1)
 
 #----------------------------------------------------------------------
 
