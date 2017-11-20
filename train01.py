@@ -241,12 +241,20 @@ def epochIteration():
 
     outputs = []
 
-    for dataset in (trainDataSet, testDataSet):
+    save_targets_now = epoch == 1 and save_targets
+
+    for dataset_name, dataset in (
+        ("train", trainDataSet), 
+        ("test", testDataSet)):
 
         evalDataLoader = DataLoader(dataset, batch_size = evalBatchSize, shuffle = False)
 
         numSamples = len(dataset)
         thisOutput = np.zeros(numSamples)
+
+        if save_targets_now:
+            # assume scalar target variable
+            targets = np.zeros(numSamples)
 
         for batchIndex, tensors in enumerate(evalDataLoader):
             start = batchIndex * evalBatchSize
@@ -262,7 +270,22 @@ def epochIteration():
 
             thisOutput[start:end] = output.data.numpy().ravel()
 
+            if save_targets_now:
+                if options.cuda:
+                    targetVar = targetVar.cpu()
+
+                targets[start:end] = targetVar.data.numpy().ravel()
+
         outputs.append(thisOutput)
+        
+        #----------
+        # write out actual target values for regression problems
+        #----------
+        if save_targets_now:
+            print "WRITING",os.path.join(options.outputDir, "targets-" + dataset_name + ".npz")
+            np.savez(os.path.join(options.outputDir, "targets-" + dataset_name + ".npz"),
+                     target = targets)
+
 
     train_output, test_output = outputs
             
@@ -621,6 +644,13 @@ if options.cuda:
 
 if not globals().has_key('makeLoss'):
     makeLoss = makeDefaultLoss
+    save_targets = False
+else:
+    # there was a custom loss function defined,
+    # assume that we should also write out custom target
+    # values (which are different from labels)
+    # since this is likely a regression problem
+    save_targets = True
 
 lossFunc, trainWeights, testWeights = makeLoss(numOutputNodes, weightsTensor, trainData['weights'], testData['weights'])
 
