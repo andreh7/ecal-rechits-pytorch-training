@@ -318,38 +318,45 @@ def epochIteration():
     # calculate AUCs
     #----------
 
-    for name, predictions, labels, weights in  (
-        # we use the original weights (before pt/eta reweighting)
-        # here for printing for the train set, i.e. not necessarily
-        # the weights used for training
-        ('train', train_output, trainData['labels'], origTrainWeights),
-        ('test',  test_output,  testData['labels'],  testWeights),
-        ):
+    # check if we have an 1D (or 1D compatible) output or not
+    # inspired by sklearn.utils.validation.column_or_1d()
+    output_shape = np.shape(train_output)
+    calculate_auc = len(output_shape) == 1 or (len(output_shape) == 2 and output_shape[1] == 1)
+    
+    if calculate_auc:
 
-        if numOutputNodes == 2:
-            # make sure we only have one column
-            labels = labels[:,0]
+        for name, predictions, labels, weights in  (
+            # we use the original weights (before pt/eta reweighting)
+            # here for printing for the train set, i.e. not necessarily
+            # the weights used for training
+            ('train', train_output, trainData['labels'], origTrainWeights),
+            ('test',  test_output,  testData['labels'],  testWeights),
+            ):
 
-        auc = roc_auc_score(labels,
-                            predictions,
-                            sample_weight = weights,
-                            average = None,
-                            )
+            if numOutputNodes == 2:
+                # make sure we only have one column
+                labels = labels[:,0]
 
-        for fout in fouts:
-            print >> fout
-            print >> fout, "%s AUC: %f" % (name, auc)
-            fout.flush()
+            auc = roc_auc_score(labels,
+                                predictions,
+                                sample_weight = weights,
+                                average = None,
+                                )
 
-        # write out online calculated auc to the result directory
-        fout = open(os.path.join(options.outputDir, "auc-%s-%04d.txt" % (name, epoch)), "w")
-        print >> fout, auc
-        fout.close()
+            for fout in fouts:
+                print >> fout
+                print >> fout, "%s AUC: %f" % (name, auc)
+                fout.flush()
 
-        # write network output
-        np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
-                 output = predictions,
-                 )
+            # write out online calculated auc to the result directory
+            fout = open(os.path.join(options.outputDir, "auc-%s-%04d.txt" % (name, epoch)), "w")
+            print >> fout, auc
+            fout.close()
+
+            # write network output
+            np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
+                     output = predictions,
+                     )
 
 
     #----------
