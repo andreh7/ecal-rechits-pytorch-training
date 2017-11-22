@@ -92,21 +92,35 @@ class Model(nn.Module):
     #----------------------------------------
     def forward(self, x):
 
-        # print "YYY",x[0].data.cpu().numpy()[0,0,3,11]
-        np.set_printoptions(threshold=np.nan,
-                            precision=3,
-                            linewidth = 1000)
+        # x is a list 
+        xval = x[0]
+
+        # np.set_printoptions(threshold=np.nan,
+        #                     precision=3,
+        #                     linewidth = 1000)
         
 
-        # x is a list 
-        weights = self.weightsModel.forward(x[0])
+        weights = self.weightsModel.forward(xval)
 
         # simply multiply the input rechit values 
         # with the predicted weights and sum
 
         minibatch_size = weights.size(0)
 
-        return (weights.view(minibatch_size, -1) * x[0].view(minibatch_size, -1)).sum(1)
+        weighted_sum =  (weights.view(minibatch_size, -1) * xval.view(minibatch_size, -1)).sum(1)
+
+        # divide by sum of center 5x5
+        # xval has size  (32L, 1L, 7L, 23L)
+        # denominator = x[0][0,0,1:6,9:14].sum
+
+        # tower has size (32,5,5)
+        tower = xval[:,0,1:6,9:14]
+
+        # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
+        # we do this in reverse order to avoid shifting the indices
+        denominator = tower.sum(dim = 2).sum(dim = 1)
+
+        return weighted_sum / denominator
 
 #----------------------------------------------------------------------
 
