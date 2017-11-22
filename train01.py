@@ -280,7 +280,6 @@ def epochIteration():
             #----------
             if thisOutput is None:
                 thisOutput = make_output_tensor(numSamples, output.size())
-                print "thisOuptut=",thisOutput.shape
 
             thisOutput[start:end] = output.data.numpy()
 
@@ -293,7 +292,6 @@ def epochIteration():
                 if targets is None:
                     # this is the first time, create targets with correct shape
                     targets = make_output_tensor(numSamples, targetVar.size())
-                    print "targets=",targets.shape
 
                 targets[start:end] = targetVar.data.numpy()
 
