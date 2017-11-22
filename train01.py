@@ -243,6 +243,13 @@ def epochIteration():
 
     save_targets_now = epoch == 1 and save_targets
 
+    #----------
+    def make_output_tensor(num_samples, output_example_shape):
+        output_example_shape = list(output_example_shape)
+        return np.zeros([num_samples] + output_example_shape[1:])
+        
+    #----------
+
     for dataset_name, dataset in (
         ("train", trainDataSet), 
         ("test", testDataSet)):
@@ -250,11 +257,11 @@ def epochIteration():
         evalDataLoader = DataLoader(dataset, batch_size = evalBatchSize, shuffle = False)
 
         numSamples = len(dataset)
-        thisOutput = np.zeros(numSamples)
+        thisOutput = None
 
         if save_targets_now:
             # assume scalar target variable
-            targets = np.zeros(numSamples)
+            targets = None
 
         for batchIndex, tensors in enumerate(evalDataLoader):
             start = batchIndex * evalBatchSize
@@ -268,13 +275,27 @@ def epochIteration():
             if options.cuda:
                 output = output.cpu()
 
-            thisOutput[start:end] = output.data.numpy().ravel()
+            #----------
+            # make output tensor now that we know the shape
+            #----------
+            if thisOutput is None:
+                thisOutput = make_output_tensor(numSamples, output.size())
+                print "thisOuptut=",thisOutput.shape
+
+            thisOutput[start:end] = output.data.numpy()
+
+            #----------
 
             if save_targets_now:
                 if options.cuda:
                     targetVar = targetVar.cpu()
 
-                targets[start:end] = targetVar.data.numpy().ravel()
+                if targets is None:
+                    # this is the first time, create targets with correct shape
+                    targets = make_output_tensor(numSamples, targetVar.size())
+                    print "targets=",targets.shape
+
+                targets[start:end] = targetVar.data.numpy()
 
         outputs.append(thisOutput)
         
