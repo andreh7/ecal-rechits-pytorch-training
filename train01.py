@@ -321,15 +321,15 @@ def epochIteration():
     output_shape = np.shape(train_output)
     calculate_auc = len(output_shape) == 1 or (len(output_shape) == 2 and output_shape[1] == 1)
     
-    if calculate_auc:
+    for name, predictions, labels, weights in  (
+        # we use the original weights (before pt/eta reweighting)
+        # here for printing for the train set, i.e. not necessarily
+        # the weights used for training
+        ('train', train_output, trainData['labels'], origTrainWeights),
+        ('test',  test_output,  testData['labels'],  testWeights),
+        ):
 
-        for name, predictions, labels, weights in  (
-            # we use the original weights (before pt/eta reweighting)
-            # here for printing for the train set, i.e. not necessarily
-            # the weights used for training
-            ('train', train_output, trainData['labels'], origTrainWeights),
-            ('test',  test_output,  testData['labels'],  testWeights),
-            ):
+        if calculate_auc:
 
             if numOutputNodes == 2:
                 # make sure we only have one column
@@ -351,10 +351,10 @@ def epochIteration():
             print >> fout, auc
             fout.close()
 
-            # write network output
-            np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
-                     output = predictions,
-                     )
+        # write network output
+        np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
+                 output = predictions,
+                 )
 
 
     #----------
