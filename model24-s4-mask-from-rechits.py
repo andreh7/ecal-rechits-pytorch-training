@@ -81,7 +81,9 @@ class Model(nn.Module):
             nn.Linear(in_features = hidden_size, out_features = hidden_size), ReLU(),
             nn.Linear(in_features = hidden_size, out_features = hidden_size), ReLU(),
 
-            nn.Linear(in_features = hidden_size, out_features = input_size), ReLU(),
+            # IMPORTANT: do NOT add a ReLU here after the last layer otherwise 
+            # the sigmoid output will always be >= 0.5 !!
+            nn.Linear(in_features = hidden_size, out_features = input_size), 
 
             # in principle we want outputs in the range 0..1 and
             # they should sum to four (not to one !)
