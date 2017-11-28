@@ -29,27 +29,36 @@ rechits_dim = (5,5)
 # model
 #----------------------------------------------------------------------
 
-# see https://discuss.pytorch.org/t/pixelwise-weights-for-mseloss/1254
-# and http://pytorch.org/docs/master/_modules/torch/nn/modules/loss.html#MSELoss
-# and http://pytorch.org/docs/master/_modules/torch/nn/modules/loss.html#BCELoss
-class WeightedMSELoss(torch.nn.modules.loss._WeightedLoss):
+# BCE loss with some reshaping
+class MyLoss(torch.nn.modules.loss._WeightedLoss):
+
+    ### def __init__(self, weights_tensor):
+    ###     super(MyLoss, self).__init__(weights_tensor)
+    ### 
+    ###     # expects numerical labels, not one hot encoded labels
+    ###     # see also https://discuss.pytorch.org/t/feature-request-nllloss-crossentropyloss-that-accepts-one-hot-target/2724
+    ###     # self.loss = nn.CrossEntropyLoss(weights_tensor, size_average = False)
+    ### 
+    ###     # does not work either
+    ###     # self.loss = nn.MultiLabelSoftMarginLoss(weights_tensor, size_average = False)
 
     def forward(self, input, target):
-        torch.nn.modules.loss._assert_no_grad(target)
 
         batch_size = input.size(0)
 
-        out = (input.view(batch_size,-1) - target.view(batch_size,-1))**2
+        # does not work
+        # return torch.nn.functional.binary_cross_entropy(input, target, self.weight, size_average = self.size_average)
 
-        out = out.sum(1)
-
-        # convert weight to a Variable (out is a tensor)
-        # (as is done e.g. in binary cross entropy
-        # loss here https://github.com/pytorch/pytorch/blob/3bb2308a899e83a9320fdde78e25ae4242251f41/torch/nn/functional.py#L1226 )
-        out = out * Variable(self.weight)
-
-        loss = out.sum()
+        torch.nn.modules.loss._assert_no_grad(target)
         
+        # calculate the per cell binary cross entropy loss ourselves
+        # out = target * torch.log(input) + (1 - target) * torch.log(1 - input)
+
+        loss = 0
+
+        for i in range(batch_size):
+             loss += self.weight[i] * torch.nn.functional.binary_cross_entropy(input[i], target[i], size_average = False)
+
         if self.size_average:
             loss /= self.weight.sum()
 
@@ -236,4 +245,4 @@ def makeLoss(numOutputNodes, weightsTensor, trainWeights, testWeights):
     # for the moment consider the absolute MSE loss
     # later we could consider taking the MSE loss
     # of the ratio output / target value
-    return WeightedMSELoss(weightsTensor, size_average = False), trainWeights, testWeights
+    return MyLoss(weightsTensor), trainWeights, testWeights
