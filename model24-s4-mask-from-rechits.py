@@ -22,7 +22,8 @@ from torch.autograd import Variable
 
 torch.backends.cudnn.benchmark = True
 
-rechits_dim = (7,23)
+# rechits_dim = (7,23)
+rechits_dim = (5,5)
 
 #----------------------------------------------------------------------
 # model
