@@ -77,11 +77,19 @@ class Model(nn.Module):
             nn.Linear(in_features = hidden_size, out_features = hidden_size), ReLU(),
             nn.Linear(in_features = hidden_size, out_features = hidden_size), ReLU(),
 
-            nn.Linear(in_features = hidden_size, out_features = input_size), ReLU(),
+            # IMPORTANT: do NOT add a ReLU here after the last layer otherwise 
+            # the sigmoid output will always be >= 0.5 !!
+            nn.Linear(in_features = hidden_size, out_features = input_size), 
 
-            # we want outputs in the range 0..1 and
-            # they should sum to one
-            nn.Softmax(),
+            # in principle we want outputs in the range 0..1 and
+            # they should sum to four (not to one !)
+            # 
+            # but for the moment we use (independent) sigmoids and therefore
+            # can have arbitrary shapes
+            # 
+            # (we could also put a constraint that there is a (2x2) window
+            # but let's try not to impose this)
+            nn.Sigmoid(),
 
             # in principle we don't need to reshape
             # back to the original form because
