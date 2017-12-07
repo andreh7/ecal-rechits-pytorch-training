@@ -22,7 +22,10 @@ from torch.autograd import Variable
 
 torch.backends.cudnn.benchmark = True
 
-rechits_dim = (7,23)
+# rechits_dim = (7,23)
+
+# focus on center 5x5
+rechits_dim = (5,5)
 
 #----------------------------------------------------------------------
 # model
@@ -122,7 +125,8 @@ class Model(nn.Module):
         # denominator = x[0][0,0,1:6,9:14].sum
 
         # tower has size (32,5,5)
-        tower = xval[:,0,1:6,9:14]
+        # tower = xval[:,0,1:6,9:14]
+        tower = xval[:,0]
 
         # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
         # we do this in reverse order to avoid shifting the indices
