@@ -837,8 +837,6 @@ with Timer("unpacking training dataset...", fouts) as t:
 with Timer("unpacking test dataset...", fouts) as t:
     testDataSet  = makeDataSet(testData)
 
-train_output = np.zeros(len(trainData['labels']))
-
 #----------
 dataloader = DataLoader(trainDataSet, batch_size = options.batchsize, shuffle = True,
                         # TODO: add support for selecting a subset
