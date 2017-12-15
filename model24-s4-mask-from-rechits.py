@@ -25,6 +25,8 @@ torch.backends.cudnn.benchmark = True
 # rechits_dim = (7,23)
 rechits_dim = (5,5)
 
+add_s4_estimates = True
+
 #----------------------------------------------------------------------
 # model
 #----------------------------------------------------------------------
@@ -44,6 +46,8 @@ class MyLoss(torch.nn.modules.loss._WeightedLoss):
 
     def forward(self, input, target):
 
+        input = input[0]
+        
         batch_size = input.size(0)
 
         # does not work
@@ -124,8 +128,28 @@ class Model(nn.Module):
 
         weights = self.weightsModel.forward(xval)
 
-        return weights
+        # also calculate the s4 value from the mask
+        # for testing (note that we do NOT include
+        # them into the loss)
+        if add_s4_estimates:
 
+            minibatch_size = weights.size(0)
+
+            tower = xval[:,0]
+
+            # print "tower=",tower.size(),weights.view(minibatch_size, -1).size(), tower.view(minibatch_size, -1).size()
+
+            weighted_sum = (weights.view(minibatch_size, -1) * tower.view(minibatch_size, -1)).sum(1)
+
+            # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
+            # we do this in reverse order to avoid shifting the indices
+            denominator = tower.sum(dim = 2).sum(dim = 1)
+
+            s4 = weighted_sum / denominator
+
+            return weights, s4
+        else:
+            return weights
 #----------------------------------------------------------------------
 
 def makeModel():
@@ -160,7 +184,9 @@ class MyDataset(torch.utils.data.Dataset):
     def __init__(self, dataset):
 
         self.weights = dataset['weights']
-        self.targets = dataset['phoIdInput/s4']
+
+        if add_s4_estimates:
+            self.s4 = dataset['phoIdInput/s4']
 
         self.nrows = len(self.weights)
 
@@ -218,9 +244,16 @@ class MyDataset(torch.utils.data.Dataset):
     #----------------------------------------
 
     def __getitem__(self, index):
-        return [ self.weights[index],
-                 self.masks[index],    # target to learn
-                 self.recHits[index] ]
+
+        result =  [ self.weights[index],
+                    self.masks[index],   # target to learn
+                    [ self.recHits[index] ]  # inputs
+                    ]
+
+        if add_s4_estimates:
+            result.append([ self.s4[index] ])
+
+        return result
 
 #----------------------------------------------------------------------
 
