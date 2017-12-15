@@ -351,7 +351,7 @@ def epochIteration():
 
     # check if we have an 1D (or 1D compatible) output or not
     # inspired by sklearn.utils.validation.column_or_1d()
-    output_shape = np.shape(train_output)
+    output_shape = np.shape(train_output[0])
     calculate_auc = len(output_shape) == 1 or (len(output_shape) == 2 and output_shape[1] == 1)
     
     for name, predictions, labels, weights in  (
@@ -369,7 +369,7 @@ def epochIteration():
                 labels = labels[:,0]
 
             auc = roc_auc_score(labels,
-                                predictions,
+                                predictions[0],
                                 sample_weight = weights,
                                 average = None,
                                 )
@@ -385,8 +385,14 @@ def epochIteration():
             fout.close()
 
         # write network output
+        output_data = dict(output = predictions[0])
+
+        # write out additional output
+        for i in range(1, len(predictions)):
+            output_data['output_%03d' % i] = predictions[i]
+
         np.savez(os.path.join(options.outputDir, "roc-data-%s-%04d.npz" % (name, epoch)),
-                 output = predictions,
+                 **output_data
                  )
 
 
