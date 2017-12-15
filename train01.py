@@ -86,9 +86,18 @@ def unpackLoadedBatch(tensors, cuda, volatile):
     # turns them into variables
     #
     # @param volatile is typically set to True for inference
-    weights      = tensors[0]
-    targets      = tensors[1]
-    inputTensors = tensors[2:]
+
+    if len(tensors) == 3:
+        weights      = tensors[0]
+        targets      = tensors[1]
+        inputTensors = tensors[2]
+        auxTensors   = None
+    elif len(tensors) == 4:
+        weights      = tensors[0]
+        targets      = tensors[1]
+        inputTensors = tensors[2]
+        auxTensors   = tensors[3]  # auxiliary variables to be written out along with targets
+        
 
     # looks like we have to convert the tensors to CUDA ourselves ?
     if options.cuda:
@@ -99,8 +108,7 @@ def unpackLoadedBatch(tensors, cuda, volatile):
     else:
         inputVars = [ Variable(x, requires_grad = False) for x in inputTensors ]
         targetVar = Variable(targets)
-
-    return weights, targetVar, inputVars
+    return weights, targetVar, inputVars, auxTensors
 
 #----------------------------------------------------------------------
 
@@ -170,7 +178,7 @@ def epochIteration():
         # batchDatas is typically a list of torch tensors whose
         # first dimension has the size of the minibatch
 
-        weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda, volatile = False)
+        weights, targetVar, inputVars, auxTensors = unpackLoadedBatch(tensors, options.cuda, volatile = False)
 
         # skip the last batch which may be odd-sized, in particular
         # does not fit the size of the weights tensor used for the loss
@@ -259,6 +267,9 @@ def epochIteration():
         numSamples = len(dataset)
         thisOutput = None
 
+        # auxiliary items written out
+        thisAuxTensors = None
+
         if save_targets_now:
             # assume scalar target variable
             targets = None
@@ -267,21 +278,35 @@ def epochIteration():
             start = batchIndex * evalBatchSize
             end = min(start + evalBatchSize,numSamples)
 
-            weights, targetVar, inputVars = unpackLoadedBatch(tensors, options.cuda, volatile = True)
+            weights, targetVar, inputVars, auxTensors = unpackLoadedBatch(tensors, options.cuda, volatile = True)
 
             # forward pass
             output = model(inputVars)
 
             if options.cuda:
-                output = output.cpu()
+                output = [ out.cpu() for out in output ]
 
             #----------
             # make output tensor now that we know the shape
             #----------
             if thisOutput is None:
-                thisOutput = make_output_tensor(numSamples, output.size())
+                thisOutput = [ make_output_tensor(numSamples, out.size()) for out in output ]
 
-            thisOutput[start:end] = output.data.numpy()
+            for to, out in zip(thisOutput, output):
+                to[start:end] = out.data.numpy()
+
+            #----------
+
+            if save_targets_now and auxTensors is not None:
+                # assume auxTensors is a list
+
+                if thisAuxTensors is None:
+                    thisAuxTensors = [ make_output_tensor(numSamples, at.size()) for at in auxTensors ]
+
+                for atindex, at in enumerate(auxTensors):
+                    # assume thisAuxTensors is a list of torch tensors, not 
+                    # a list of torch Variables
+                    thisAuxTensors[atindex][start:end] = at.numpy()
 
             #----------
 
@@ -304,6 +329,14 @@ def epochIteration():
             print "WRITING",os.path.join(options.outputDir, "targets-" + dataset_name + ".npz")
             np.savez(os.path.join(options.outputDir, "targets-" + dataset_name + ".npz"),
                      target = targets)
+
+
+            # write auxtensors out
+            if thisAuxTensors is not None:
+                print "WRITING",os.path.join(options.outputDir, "auxvars-" + dataset_name + ".npz")
+                thisAuxTensors = dict( [("v%03d" % index, at) for index, at in enumerate(thisAuxTensors) ])
+                np.savez(os.path.join(options.outputDir, "auxvars-" + dataset_name + ".npz"),
+                         **thisAuxTensors)
 
 
     train_output, test_output = outputs
@@ -376,7 +409,7 @@ def dumpModelOnnx(model, outputFname, cuda, dataloader):
     # see https://stackoverflow.com/a/33956803/288875 )
     tensors = next(iter(dataloader))
 
-    weights, targetVar, inputVars = unpackLoadedBatch(tensors, cuda, volatile = True)
+    weights, targetVar, inputVars, auxTensors = unpackLoadedBatch(tensors, cuda, volatile = True)
 
     torch.onnx.export(model,
                       args = inputVars,
