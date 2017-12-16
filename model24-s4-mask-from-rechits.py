@@ -212,7 +212,9 @@ class MyDataset(torch.utils.data.Dataset):
 
         # find the windows with the maximum 2x2 sum
         import scipy.signal
-        for i in range(len(towers)):
+        nrows = len(towers)
+
+        for i in range(nrows):
             conv = scipy.signal.convolve2d(towers[i], conv_weights, mode = 'valid')
 
             # the maximum coordinate is the top left of the window
@@ -234,7 +236,15 @@ class MyDataset(torch.utils.data.Dataset):
                 print "tower="; print towers[i]
                 print "mask="; print self.masks[i]
                 print "s4 cacluated=", np.dot(recHits[i].ravel(), masks[i].ravel()) / towers[i].sum()
-            
+
+        if add_s4_estimates:
+            # also calculate our S4 based on these masks
+
+            numerator = (towers.reshape(nrows, -1) * self.masks.reshape(nrows, -1)).sum(axis = 1)
+
+            denominator = towers.reshape(nrows, -1).sum(axis = 1)
+
+            self.s4recalculated = numerator / denominator
 
     #----------------------------------------
 
@@ -251,7 +261,7 @@ class MyDataset(torch.utils.data.Dataset):
                     ]
 
         if add_s4_estimates:
-            result.append([ self.s4[index] ])
+            result.append([ self.s4[index], self.s4recalculated[index] ])
 
         return result
 
