@@ -39,7 +39,7 @@ class WeightedMSELoss(torch.nn.modules.loss._WeightedLoss):
     def forward(self, input, target):
         torch.nn.modules.loss._assert_no_grad(target)
 
-        out = (input - target)**2
+        out = (input[0] - target)**2
 
         # convert weight to a Variable (out is a tensor)
         # (as is done e.g. in binary cross entropy
@@ -132,7 +132,8 @@ class Model(nn.Module):
         # we do this in reverse order to avoid shifting the indices
         denominator = tower.sum(dim = 2).sum(dim = 1)
 
-        return weighted_sum / denominator
+        return [ weighted_sum / denominator,
+                 ]
 
 #----------------------------------------------------------------------
 
@@ -186,7 +187,7 @@ class MyDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         return [ self.weights[index],
                  self.targets[index],
-                 self.recHits[index] ]
+                 [ self.recHits[index] ]  ]
 
 #----------------------------------------------------------------------
 
