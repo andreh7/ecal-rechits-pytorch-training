@@ -133,6 +133,7 @@ class Model(nn.Module):
         denominator = tower.sum(dim = 2).sum(dim = 1)
 
         return [ weighted_sum / denominator,
+                 weights
                  ]
 
 #----------------------------------------------------------------------
