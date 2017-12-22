@@ -147,9 +147,9 @@ class Model(nn.Module):
 
             s4 = weighted_sum / denominator
 
-            return weights, s4
+            return [ weights, s4 ]
         else:
-            return weights
+            return [ weights ]
 #----------------------------------------------------------------------
 
 def makeModel():
