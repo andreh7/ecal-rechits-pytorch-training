@@ -39,6 +39,8 @@ class WeightedMSELoss(torch.nn.modules.loss._WeightedLoss):
     def forward(self, input, target):
         torch.nn.modules.loss._assert_no_grad(target)
 
+        # input[0] are the predicted S4 values
+        # target are the learned S4 values
         out = (input[0] - target)**2
 
         # convert weight to a Variable (out is a tensor)
@@ -170,7 +172,7 @@ class MyDataset(torch.utils.data.Dataset):
     def __init__(self, dataset):
 
         self.weights = dataset['weights']
-        self.targets = dataset['phoIdInput/s4']
+        self.targets = dataset['phoIdInput/s4'].reshape(-1)
 
         self.nrows = len(self.weights)
 
