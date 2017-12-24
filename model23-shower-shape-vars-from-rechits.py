@@ -99,6 +99,16 @@ class Model(nn.Module):
             Reshape(-1, rechits_dim[0], rechits_dim[1]),
             )
 
+        # calculate indices of center 5x5 tower
+        assert rechits_dim[0] % 2 == 1
+        assert rechits_dim[1] % 2 == 1
+
+        # assume python 2 integer division
+        center = (rechits_dim[0] / 2, rechits_dim[1] / 2)
+        
+        self.tower_indices = ( slice(center[0] - 2, center[0] + 3),
+                               slice(center[1] - 2, center[1] + 3))
+                               
     #----------------------------------------
     def forward(self, x):
 
@@ -124,7 +134,7 @@ class Model(nn.Module):
         # denominator = x[0][0,0,1:6,9:14].sum
 
         # tower has size (32,5,5)
-        tower = xval[:,0,1:6,9:14]
+        tower = xval[:,0,self.tower_indices[0], self.tower_indices[1]]
 
         # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
         # we do this in reverse order to avoid shifting the indices
