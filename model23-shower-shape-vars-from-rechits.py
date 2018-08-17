@@ -24,6 +24,10 @@ torch.backends.cudnn.benchmark = True
 
 rechits_dim = (7,23)
 
+# if True, we fix the denominator to the central 5x5 sum
+# if False, we use a similar network for the denominator
+fix_denominator = True
+
 #----------------------------------------------------------------------
 # model
 #----------------------------------------------------------------------
@@ -57,20 +61,22 @@ class WeightedMSELoss(torch.nn.modules.loss._WeightedLoss):
 from ReLU import ReLU
 from Reshape import Reshape
 
-class Model(nn.Module):
+#----------------------------------------------------------------------
 
-    #----------------------------------------
+class SingleModel(nn.Module):
+    # single model for numerator or denominator
+    # includes summing
+    
+    def __init__(self, rechits_dim, return_weights):
+        super(SingleModel, self).__init__()
 
-    def __init__(self, rechits_dim):
-        super(Model, self).__init__()
+        self.return_weights = return_weights
 
         input_size = rechits_dim[0] * rechits_dim[1]
-
         hidden_size = 2 * input_size
 
-        # network to learn the weights
-        # depending on the input shape 
-        self.weightsModel = nn.Sequential(
+        # define the weights model
+        self.weights_model = nn.Sequential(
             Reshape(-1, input_size),
 
             nn.Linear(in_features = input_size, out_features = hidden_size), ReLU(),
@@ -99,15 +105,82 @@ class Model(nn.Module):
             Reshape(-1, rechits_dim[0], rechits_dim[1]),
             )
 
+    #----------------------------------------
+
+    def forward(self, xval):
+        # xval must be a tensor, not the list like 
+        # for the top level model
+        
+        # calculate predicted weights
+        weights = self.weights_model.forward(xval)
+
+        # simply multiply the input rechit values 
+        # with the predicted weights and sum
+
+        minibatch_size = weights.size(0)
+        weighted_sum =  (weights.view(minibatch_size, -1) * xval.view(minibatch_size, -1)).sum(1)
+
+        if self.return_weights:
+            return weighted_sum, weights
+        else:
+            return weighted_sum
+
+#----------------------------------------------------------------------
+
+class TowerSumModel(nn.Module):
+    # simple model just summing up the central 5x5 tower
+    # for the denominator
+    
+    def __init__(self, rechits_dim):
+        super(TowerSumModel, self).__init__()
+
         # calculate indices of center 5x5 tower
         assert rechits_dim[0] % 2 == 1
         assert rechits_dim[1] % 2 == 1
 
         # assume python 2 integer division
         center = (rechits_dim[0] / 2, rechits_dim[1] / 2)
-        
+
         self.tower_indices = ( slice(center[0] - 2, center[0] + 3),
                                slice(center[1] - 2, center[1] + 3))
+
+    def forward(self, xval):
+        # xval should be the tensor already, not a list
+        
+        # do the summing here
+
+        # tower has size (32,5,5)
+        tower = xval[:,0,self.tower_indices[0], self.tower_indices[1]]
+
+        # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
+        # we do this in reverse order to avoid shifting the indices
+        return tower.sum(dim = 2).sum(dim = 1)
+        
+
+#----------------------------------------------------------------------
+
+class Model(nn.Module):
+    # overall model
+
+    #----------------------------------------
+
+    def __init__(self, rechits_dim):
+        super(Model, self).__init__()
+
+        # network to learn the weights
+        # depending on the input shape 
+        self.numerator_model = SingleModel(rechits_dim, return_weights = True)
+
+        print "fix_denominator is",fix_denominator
+
+        if fix_denominator:
+            # always use the central 5x5 tower sum
+            # in the denominator
+            self.denominator_model = TowerSumModel(rechits_dim)
+
+        else:
+            # use another network for the denominator
+            self.denominator_model = SingleModel(rechits_dim, return_weights = False)
                                
     #----------------------------------------
     def forward(self, x):
@@ -118,30 +191,14 @@ class Model(nn.Module):
         # np.set_printoptions(threshold=np.nan,
         #                     precision=3,
         #                     linewidth = 1000)
-        
 
-        weights = self.weightsModel.forward(xval)
 
-        # simply multiply the input rechit values 
-        # with the predicted weights and sum
+        # xval typically has size  (32L, 1L, 7L, 23L)
+        numerator, numerator_weights = self.numerator_model.forward(xval)
+        denominator                  = self.denominator_model.forward(xval)
 
-        minibatch_size = weights.size(0)
-
-        weighted_sum =  (weights.view(minibatch_size, -1) * xval.view(minibatch_size, -1)).sum(1)
-
-        # divide by sum of center 5x5
-        # xval has size  (32L, 1L, 7L, 23L)
-        # denominator = x[0][0,0,1:6,9:14].sum
-
-        # tower has size (32,5,5)
-        tower = xval[:,0,self.tower_indices[0], self.tower_indices[1]]
-
-        # we sum over dimensions 1 and 2 (keeping the minibatch dimension)
-        # we do this in reverse order to avoid shifting the indices
-        denominator = tower.sum(dim = 2).sum(dim = 1)
-
-        return [ weighted_sum / denominator,
-                 weights
+        return [ numerator / denominator,
+                 numerator_weights
                  ]
 
 #----------------------------------------------------------------------
